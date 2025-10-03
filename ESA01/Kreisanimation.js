@@ -7,22 +7,7 @@ window.onload = function(){
         return;
     }
 
-    // // Schwarz:
-    // gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
-    // // Dunkelgrau:
-    // gl.clearColor(0.2, 0.2, 0.2, 1.0);
-
-    // // Lila:
-    // gl.clearColor(0.5, 0.0, 0.5, 1.0);
-    //
-    // // Dunkelgrün:
-    // gl.clearColor(0.0, 0.3, 0.0, 1.0);
-    //
-    // // Orange:
-    // gl.clearColor(1.0, 0.5, 0.0, 1.0);
-
-    //Farbe
+    //Hintergrundfarbe
     gl.clearColor(0.8, 1, 1, 1.0);
 
 
