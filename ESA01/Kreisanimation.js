@@ -15,6 +15,8 @@ window.onload = function(){
 
 
 
+
+    //Rotierende Kreisanimation Anfang
     let imgElemet = document.getElementById("meinKreis");
     let angle = 0;
 
@@ -31,6 +33,7 @@ window.onload = function(){
     }
 
     setInterval(nextImage, 100);
+    //Rotierende Kreisanimation Anfang
 }
 
 
