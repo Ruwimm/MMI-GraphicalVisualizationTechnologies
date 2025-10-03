@@ -1,0 +1,28 @@
+h1 {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+#container {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    margin: 0 auto;
+}
+
+#glcanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#meinKreis {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+}
+
