@@ -45,13 +45,13 @@ window.onload = function() {
                 if (playing) stopAnimation();
                 else startAnimation();
                 break;
-            case "r":
+            case "i":
                 stopAnimation();
                 count++;
                 if (count > 24) count = 1;
                 imgElement.src = `Shuriken/Shuriken${count}.png`;
                 break;
-            case "i":
+            case "r":
                 stopAnimation();
                 count--;
                 if (count < 1) count = 24;
