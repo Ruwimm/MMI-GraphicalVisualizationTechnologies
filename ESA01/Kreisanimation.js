@@ -6,9 +6,35 @@ window.onload = function() {
         return;
     }
 
-    // Hintergrundfarbe
-    gl.clearColor(0.8, 1, 1, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    //Spritesheet variablen
+    let currentAnimation =1; //1= Shuriken, 2= Spritesheet
+    const spritesheetCanvas = document.getElementById("spritesheetCanvas");
+    const spritesheetCtx = spritesheetCanvas.getContext("2d");
+    const spritesheetImage = new Image();
+    spritesheetImage.src = "Ball/JumpingBall-spritesheet.png";
+
+
+    function drawSpriteFrame(frameNumber){
+        const cols =4;
+        const rows = 6;
+        const frameWidth = 521.5;
+        const frameHeight = 520.83;
+
+        const col = (frameNumber -1) % cols;
+        const row = Math.floor((frameNumber - 1) / cols);
+
+        const srcX = col * frameWidth;
+        const srcY = row * frameHeight;
+
+        spritesheetCtx.clearRect(0, 0, spritesheetCanvas.width, spritesheetCanvas.height);
+        spritesheetCtx.drawImage(
+            spritesheetImage,
+            srcX, srcY, frameWidth, frameHeight,
+            0, 0, 300, 300
+        );
+    }
+
 
     // Bildanimation
     const imgElement = document.getElementById("meinKreis");
@@ -19,7 +45,13 @@ window.onload = function() {
     function updateImage() {
         count++;
         if (count > 24) count = 1;
-        imgElement.src = `Shuriken/Shuriken${count}.png`;
+
+        if(currentAnimation === 1){
+            imgElement.src = `Shuriken/Shuriken${count}.png`;
+        } else {
+            drawSpriteFrame(count);
+        }
+
     }
 
     function startAnimation() {
@@ -45,17 +77,25 @@ window.onload = function() {
                 if (playing) stopAnimation();
                 else startAnimation();
                 break;
-            case "r":
+            case "l":
                 stopAnimation();
                 count++;
                 if (count > 24) count = 1;
-                imgElement.src = `Shuriken/Shuriken${count}.png`;
+                if (currentAnimation === 1) {
+                    imgElement.src = `Shuriken/Shuriken${count}.png`;
+                } else {
+                    drawSpriteFrame(count);
+                }
                 break;
-            case "i":
+            case "r":
                 stopAnimation();
                 count--;
                 if (count < 1) count = 24;
-                imgElement.src = `Shuriken/Shuriken${count}.png`;
+                if (currentAnimation === 1) {
+                    imgElement.src = `Shuriken/Shuriken${count}.png`;
+                } else {
+                    drawSpriteFrame(count);
+                }
                 break;
         }
     });
@@ -64,6 +104,7 @@ window.onload = function() {
     const btnStopStart = document.getElementById("btnStopStart");
     const btnPrev = document.getElementById("btnPrev");
     const btnNext = document.getElementById("btnNext");
+    const btnSwitch = document.getElementById("btnSwitchAnimation");
 
     btnStopStart.addEventListener("click", () => {
         if (playing) stopAnimation();
@@ -74,13 +115,35 @@ window.onload = function() {
         stopAnimation();
         count--;
         if (count < 1) count = 24;
-        imgElement.src = `Shuriken/Shuriken${count}.png`;
+        if (currentAnimation === 1) {
+            imgElement.src = `Shuriken/Shuriken${count}.png`;
+        } else {
+            drawSpriteFrame(count);
+        }
     });
 
     btnNext.addEventListener("click", () => {
         stopAnimation();
         count++;
         if (count > 24) count = 1;
-        imgElement.src = `Shuriken/Shuriken${count}.png`;
+        if (currentAnimation === 1) {
+            imgElement.src = `Shuriken/Shuriken${count}.png`;
+        } else {
+            drawSpriteFrame(count);
+        }
     });
+
+    btnSwitch.addEventListener("click", () => {
+        if(currentAnimation === 1){
+            currentAnimation = 2;
+            imgElement.style.display = "none";
+            spritesheetCanvas.style.display = "block";
+            drawSpriteFrame(count);
+        }else{
+            currentAnimation = 1;
+            spritesheetCanvas.style.display = "none";
+            imgElement.style.display = "block";
+            imgElement.src = `Shuriken/Shuriken${count}.png`;
+        }
+    })
 };
