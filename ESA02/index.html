@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<body style="margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #2c3e3f;">
+<canvas id="canvas" width="400" height="400"></canvas>
+<script>
+    let canvas = document.getElementById('canvas');
+    let gl = canvas.getContext('experimental-webgl');
+
+    gl.clearColor(1, 1, 1, 1);
+    gl.frontFace(gl.CCW);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
+
+    //vertex shader
+    let vsSource = 'attribute vec2 pos;' +
+        'void main(){' +
+        '  vec2 normalized = (pos - 5.0) / 5.0;' +  // 0-10 → -1 bis +1
+        '  gl_Position = vec4(normalized, 0.0, 1.0);' +
+        '}';
+    let vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, vsSource);
+    gl.compileShader(vs);
+
+    //fragment shader
+    let fsSource = 'void main(){ gl_FragColor = vec4(0, 0, 0, 1); }';
+    let fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, fsSource);
+    gl.compileShader(fs);
+
+    // Link shaders
+    let prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+
+    let vertices = new Float32Array([
+        //Umriss Linke Außen Seite
+        5.0, 9.375,
+        3.125, 8.75,
+        3.75, 8.75,
+        2.5, 8.125,
+        3.125, 8.125,
+        1.25, 6.875,
+        1.875, 6.875,
+        0.625, 5.0,
+        1.25, 5.0,
+        0.625, 3.125,
+        1.25, 3.75,
+        2.5, 1.25,
+        2.5, 1.875,
+        3.75, 0.625,
+        3.75, 1.875,
+        5.0, 0.0,
+
+        //Umriss Rechte Außen Seite
+        6.25, 1.875,
+        6.25, 0.625,
+        7.5, 1.875,
+        7.5, 1.25,
+        8.75, 3.75,
+        9.375, 3.125,
+        8.75, 5.0,
+        9.375, 5.0,
+        8.125, 6.875,
+        8.75, 6.875,
+        6.875, 8.125,
+        7.5, 8.125,
+        6.25, 8.75,
+        6.875, 8.75,
+        5.0, 9.375,
+
+        //Augen Links
+        4.375, 6.875,
+        4.375, 6.25,
+        3.125, 7.5,
+        4.375, 6.875,
+
+
+        //Schnabel
+        5.0, 5.625,
+        4.375, 5.0,
+        3.75, 3.75,
+        5.0, 2.5,
+        6.25, 3.75,
+        5.625, 5.0,
+        5.0, 5.625,
+        5.0, 4.375,
+        4.375, 3.75,
+        5.0, 0.625,
+        5.625, 3.75,
+        5.0, 4.375,
+        5.0, 5.625,
+
+        //Augen Rechts
+        5.625, 6.875,
+        6.875, 7.5,
+        5.625, 6.25,
+        5.625, 6.875,
+
+    ]);
+
+
+    let indices = new Uint16Array([
+
+    ]);
+
+    // Setup VBO (vertex buffer object)
+    let vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    // Setup IBO (index buffer object)
+    let ibo = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+    ibo.numberOfElements = indices.length;
+
+    // Connect vertex buffer to shader attribute.
+    let posAttrib = gl.getAttribLocation(prog, 'pos');
+    gl.vertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(posAttrib);
+
+    // Render
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.LINE_LOOP, 0, vertices.length / 2);
+</script>
+</body>
+</html>
