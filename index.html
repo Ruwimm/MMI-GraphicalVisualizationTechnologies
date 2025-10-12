@@ -3,12 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <title>Graphical Visualization Technologies</title>
+    <style>
+        :root {
+            --bg: #1e2b2c;
+            --card: #2f3e3f;
+            --accent: #00bfa6;
+            --text: #e0e0e0;
+            --text-dim: #a0a0a0;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        h1 {
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            gap: 1rem;
+        }
+
+        li a {
+            display: block;
+            padding: 0.8rem 1.6rem;
+            background: var(--card);
+            color: var(--text);
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        li a:hover {
+            background: var(--accent);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+        }
+
+
+        #hinweise {
+            margin-top: 3rem;
+            background: var(--card);
+            border-left: 4px solid var(--accent);
+            border-radius: 10px;
+            padding: 1.2rem 1.5rem;
+            max-width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        #hinweise h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        #hinweise ul {
+            list-style: none;
+            padding: 0;
+            margin: 0.5rem 0 0 0;
+        }
+
+        #hinweise li {
+            margin: 0.3rem 0;
+            font-size: 0.95rem;
+            color: var(--text-dim);
+        }
+
+        #hinweise b {
+            color: var(--text);
+        }
+    </style>
 </head>
 <body>
 <h1>Übersicht – Einsendeaufgaben</h1>
 <ul>
-    <li><a href="ESA01/index.html">ESA 01</a></li>
-    <li><a href="ESA02/index.html">ESA 02</a></li>
+    <li><a href="ESA01/index.html">ESA&nbsp;01</a></li>
+    <li><a href="ESA02/index.html">ESA&nbsp;02</a></li>
 </ul>
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Repo:</b>
+            <a href="https://github.com/Ruwimm/MMI-GraphicalVisualizationTechnologies.git" target="_blank">
+                https://github.com/Ruwimm/MMI-GraphicalVisualizationTechnologies.git
+            </a>
+        </li>
+        <li>
+            <b>Autor:</b>
+            Ruwim&nbsp;Merling&nbsp;7011262
+        </li>
+    </ul>
+</div>
 </body>
 </html>
