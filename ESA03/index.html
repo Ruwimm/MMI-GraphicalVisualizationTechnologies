@@ -43,7 +43,7 @@
     gl.compileShader(vs);
 
     //fragment shader
-    let fsSource = 'void main(){ gl_FragColor = vec4(0, 0.5, 0.0, 1); }';
+    let fsSource = 'void main(){ gl_FragColor = vec4(0, 0.0, 0.0, 1); }';
     let fs = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fs, fsSource);
     gl.compileShader(fs);
