@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<h1 id="title">ESA 3 - Farbig gefuellte 2D Geometrie</h1>
+<canvas id="canvas" width="400" height="400"></canvas>
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Darstellung:</b>
+            Hier soll eine Tulpe abgebildet werden
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Die Referenz wurde vorher eigenstaendig analog gezeichnet
+        </li>
+    </ul>
+</div>
+
+<script>
+    let canvas = document.getElementById('canvas');
+    let gl = canvas.getContext('experimental-webgl');
+
+    gl.clearColor(1, 1, 1, 1);
+    gl.frontFace(gl.CCW);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
+
+    //vertex shader
+    let vsSource = `
+    attribute vec2 pos;
+    uniform float scaleFactor;
+    void main() {
+        vec2 scaledPos = pos / scaleFactor; // Skalierung in den Shader
+        gl_Position = vec4(scaledPos, 0.0, 1.0);
+    }`;
+    let vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, vsSource);
+    gl.compileShader(vs);
+
+    //fragment shader
+    let fsSource = 'void main(){ gl_FragColor = vec4(0, 0.5, 0.0, 1); }';
+    let fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, fsSource);
+    gl.compileShader(fs);
+
+    // Link shaders
+    let prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    let scaleFactor = 5.0;
+    let scaleUniformLocation = gl.getUniformLocation(prog, "scaleFactor");
+    gl.uniform1f(scaleUniformLocation, scaleFactor);
+
+    let vertices = new Float32Array([
+        -2.0, -5.0,
+        -1.0, -5.0,
+        -0.25, -4.0,
+
+        -0.25, -4.0,
+        -1.25, -4.0,
+        -2.0, -5.0,
+
+        -1.25, -4.0,
+        -0.25, -4.0,
+        0.0, -3.0,
+
+        0.0, -3.0,
+        -1.0, -3.0,
+        -1.25, -4.0,
+
+        -1.0, -3.0,
+        0.0, -3.0,
+        0.0, -2.75,
+
+        0.0, -2.75,
+        0.25, -3.0,
+        0.75, -3.0,
+
+        0.75, -3.0,
+        1.0, -2.75,
+        1.0, -2.25,
+
+        1.0, -2.25,
+        0.75, -2.0,
+        0.75, -3.0,
+
+        0.75, -3.0,
+        0.75, -2.0,
+        0.25, -2.0,
+
+        0.25, -2.0,
+        0.0, -2.25,
+        0.75, -3.0,
+
+        0.75, -3.0,
+        0.0, -2.25,
+        0.0, -2.75,
+
+        0.0, -2.75,
+        0.0, -2.25,
+        -1.0, -3.0,
+
+        -1.0, -3.0,
+        0.0, -2.25,
+        -1.0, -2.0,
+
+        -1.0, -2.0,
+        0.0,-2.25,
+        0.0, -2.0,
+
+        0.0, -2.0,
+        0.0, -1.0,
+        -1.0, -2.0,
+
+        -1.0, -2.0,
+        0.0, -1.0,
+        -1.0, -1.0,
+
+        // Ab hier Blüte
+        -1.0, -1.0,
+        0.0, -1.0,
+        0.75, -0.5,
+
+        0.75, -0.5,
+        0.75, 0.0,
+        -1.0, -1.0,
+
+        0.75, 0.0,
+        0.75, 0.25,
+        0.25, 0.0,
+
+        0.25, 0.0,
+        0.0, 0.25,
+        -0.25, 0.0,
+
+        -0.25, 0.0,
+        -0.5, 0.25,
+        -0.75, 0.0,
+
+        -0.75, 0.0,
+        -1.0, 0.25,
+        -1.25, 0.0,
+
+        -1.25, 0.0,
+        -1.75, 0.25,
+        -1.75, 0.0,
+
+        -1.75, 0.0,
+        -1.75, -0.50,
+        -1.25, 0.0,
+
+        -1.25, 0.0,
+        -1.75, -0.5,
+        -1.0, -1.0,
+
+        -1.0, -1.0,
+        0.75, 0.0,
+        0.25, 0.0,
+
+        0.25, 0.0,
+        -0.25, 0.0,
+        -1.0, -1.0,
+
+        -1.0, -1.0,
+        -0.25, 0.0,
+        -0.75, 0.0,
+
+        -0.75, 0.0,
+        -1.25, 0.0,
+        -1.0, -1.0,
+
+    ]);
+
+
+
+    // Setup VBO (vertex buffer object)
+    let vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+
+    // Connect vertex buffer to shader attribute.
+    let posAttrib = gl.getAttribLocation(prog, 'pos');
+    gl.vertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(posAttrib);
+
+
+    // Render
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
+</script>
+</body>
+</html>
+
+
+<!-- -1.0, -5.0,-->
+<!-- -0.25, -4.0,-->
+<!--0.0, -3.0,-->
+<!--0.0, -2.75,-->
+<!--0.25, -3.0,-->
+<!--0.75, -3.0,-->
+<!--1.0, -2.75,-->
+<!--1.0, -2.25,-->
+<!--0.75, -2.0,-->
+<!--0.25, -2.0,-->
+<!--0.0, -2.25,-->
+<!--0.0, -2.0,-->
+<!--0.0, -1.0,-->
+
+<!--0.25, -1.0,-->
+
+
+<!--0.75, -0.5,-->
+<!--0.75, 0.0,-->
+<!--0.75, 0.25,-->
+<!--0.25, 0.0,-->
+<!--0.0, 0.25,-->
+<!-- -0.25, 0.0,-->
+<!-- -0.5, 0.25,-->
+<!-- -0.75, 0.0,-->
+<!-- -1.0, 0.25,-->
+<!-- -1.25, 0.0,-->
+<!-- -1.75, 0.25,-->
+<!-- -1.75, 0.0,-->
+<!-- -1.75, -0.5,-->
+<!-- -1.25, -1.0,-->
+<!-- -1.0, -1.0,-->
+
+
+<!-- -1.0, -1.0,-->
+<!-- -1.0, -2.0,-->
+<!-- -1.0, -3.0,-->
+<!-- -1.25, -4.0,-->
+<!-- -2.0, -5.0,-->
