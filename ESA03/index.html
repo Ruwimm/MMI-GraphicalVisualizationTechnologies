@@ -16,7 +16,9 @@
         </li>
         <li>
             <b>Quelle:</b>
-            Die Referenz wurde vorher eigenstaendig analog gezeichnet
+            Die Referenz wurde vorher eigenstaendig analog gezeichnet.
+            Hier wurde die Geometrie von Grund auf sauber aufgebaut mit Culling enabled.
+            ESA2 war nicht geeignet bzw. "sauber" genug
         </li>
     </ul>
 </div>
@@ -228,6 +230,23 @@
         1.0, 0.4, 0.3,   1.0, 0.3, 0.3,   0.8, 0.1, 0.1,
 
     ])
+
+/////////////////////In den Mittelpunkt verschieben
+    let sumX = 0, sumY = 0, count = vertices.length / 2;
+
+    for (let i = 0; i < vertices.length; i += 2) {
+        sumX += vertices[i];
+        sumY += vertices[i + 1];
+    }
+
+    let centerX = sumX / count;
+    let centerY = sumY / count;
+
+    for (let i = 0; i < vertices.length; i += 2) {
+        vertices[i] -= centerX;
+        vertices[i + 1] -= centerY;
+    }
+//////////////////////////
 
     let colorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
