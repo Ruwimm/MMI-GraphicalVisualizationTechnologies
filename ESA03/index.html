@@ -16,34 +16,48 @@
         </li>
         <li>
             <b>Quelle:</b>
-            Die Referenz wurde vorher eigenstaendig analog gezeichnet
+            Die Referenz wurde vorher eigenstaendig analog gezeichnet.
+            Hier wurde die Geometrie von Grund auf sauber aufgebaut mit Culling enabled.
+            ESA2 war nicht geeignet bzw. "sauber" genug
         </li>
     </ul>
 </div>
 
 <script>
     let canvas = document.getElementById('canvas');
-    let gl = canvas.getContext('experimental-webgl');
+    let gl = canvas.getContext('webgl');
 
     gl.clearColor(1, 1, 1, 1);
     gl.frontFace(gl.CCW);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
 
-    //vertex shader
+    // Vertex Shader (vsSource)
     let vsSource = `
     attribute vec2 pos;
+    attribute vec3 color;
+    varying vec3 vColor;
     uniform float scaleFactor;
+
     void main() {
-        vec2 scaledPos = pos / scaleFactor; // Skalierung in den Shader
+        vec2 scaledPos = pos / scaleFactor;
         gl_Position = vec4(scaledPos, 0.0, 1.0);
+        vColor = color;
     }`;
+
     let vs = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vs, vsSource);
     gl.compileShader(vs);
 
-    //fragment shader
-    let fsSource = 'void main(){ gl_FragColor = vec4(0, 0.5, 0.0, 1); }';
+    // Fragment Shader (fsSource)
+    let fsSource = `
+    precision mediump float;
+    varying vec3 vColor;
+
+    void main() {
+        gl_FragColor = vec4(vColor, 1.0);
+    }`;
+
     let fs = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fs, fsSource);
     gl.compileShader(fs);
@@ -179,6 +193,68 @@
 
     ]);
 
+    let colors = new Float32Array([
+        // Grünverlauf
+        0.0, 0.4, 0.0,   0.0, 0.6, 0.0,   0.0, 0.5, 0.0,
+        0.0, 0.5, 0.0,   0.0, 0.7, 0.0,   0.0, 0.4, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.5, 0.0,   0.0, 0.7, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.5, 0.0,   0.0, 0.4, 0.0,
+        0.0, 0.5, 0.0,   0.0, 0.6, 0.0,   0.0, 0.7, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.8, 0.0,
+        0.0, 0.7, 0.0,   0.0, 0.8, 0.0,   0.0, 0.6, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.8, 0.0,   0.0, 0.7, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.5, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.8, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.5, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.5, 0.0,   0.0, 0.4, 0.0,
+        0.0, 0.5, 0.0,   0.0, 0.6, 0.0,   0.0, 0.7, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.8, 0.0,
+        0.0, 0.6, 0.0,   0.0, 0.7, 0.0,   0.0, 0.8, 0.0,
+        0.0, 0.5, 0.0,   0.0, 0.6, 0.0,   0.0, 0.4, 0.0,
+
+        // Rot
+        0.8, 0.0, 0.0,   0.9, 0.2, 0.1,   1.0, 0.3, 0.2,
+        0.9, 0.1, 0.1,   1.0, 0.4, 0.3,   0.8, 0.0, 0.0,
+        1.0, 0.4, 0.3,   0.9, 0.2, 0.2,   1.0, 0.5, 0.4,
+        1.0, 0.3, 0.3,   0.9, 0.2, 0.1,   1.0, 0.4, 0.3,
+        1.0, 0.4, 0.3,   1.0, 0.3, 0.3,   0.9, 0.2, 0.1,
+        1.0, 0.5, 0.4,   0.9, 0.3, 0.2,   0.8, 0.1, 0.1,
+        0.8, 0.0, 0.0,   1.0, 0.4, 0.3,   1.0, 0.3, 0.3,
+        1.0, 0.3, 0.3,   0.9, 0.2, 0.2,   0.8, 0.0, 0.0,
+        0.8, 0.0, 0.0,   0.9, 0.2, 0.1,   1.0, 0.3, 0.2,
+        1.0, 0.3, 0.3,   0.8, 0.1, 0.1,   0.9, 0.2, 0.2,
+        0.9, 0.2, 0.1,   1.0, 0.4, 0.3,   0.8, 0.1, 0.1,
+        0.8, 0.0, 0.0,   1.0, 0.3, 0.2,   0.9, 0.2, 0.1,
+        0.9, 0.1, 0.1,   1.0, 0.3, 0.3,   1.0, 0.4, 0.3,
+        1.0, 0.4, 0.3,   0.9, 0.2, 0.2,   1.0, 0.5, 0.4,
+        1.0, 0.4, 0.3,   1.0, 0.3, 0.3,   0.8, 0.1, 0.1,
+
+    ])
+
+/////////////////////In den Mittelpunkt verschieben
+    let sumX = 0, sumY = 0, count = vertices.length / 2;
+
+    for (let i = 0; i < vertices.length; i += 2) {
+        sumX += vertices[i];
+        sumY += vertices[i + 1];
+    }
+
+    let centerX = sumX / count;
+    let centerY = sumY / count;
+
+    for (let i = 0; i < vertices.length; i += 2) {
+        vertices[i] -= centerX;
+        vertices[i + 1] -= centerY;
+    }
+//////////////////////////
+
+    let colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+
+    let colorAttrib = gl.getAttribLocation(prog, 'color');
+    gl.vertexAttribPointer(colorAttrib, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(colorAttrib);
 
 
     // Setup VBO (vertex buffer object)
