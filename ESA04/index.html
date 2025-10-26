@@ -1,234 +1,308 @@
-<!DOCTYPE html5>
+<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 4 - Parametrisierte Flaechen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
-<canvas id="canvas" width="500" height="500"></canvas>
-<script>
-    // Get the WebGL context.
-    var canvas = document.getElementById('canvas');
-    var gl = canvas.getContext('experimental-webgl');
+<h1 id="title">ESA 4 - Parametrisierte Flaechen</h1>
+<canvas id="canvas" width="400" height="400"></canvas>
 
-    // Pipeline setup.
-    gl.clearColor(.95, .95, .95, 1);
-    // Backface culling.
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Darstellung:</b>
+            Hier werden eine Kugel, ein Torus und ein Custom Shape (Dach/Cone) nacheinander dargestellt
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Es wurden mathematische Formeln als Referenz eigenstaendig ausprobiert.
+        </li>
+    </ul>
+</div>
+
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+    <button id="cycleBtn">Form wechseln</button>
+    <button id="surfaceBtn">Flaeche aus</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) {
+        alert('WebGL wird nicht unterstützt.');
+    }
+
+    // Viewport
+    gl.viewport(0, 0, canvas.width, canvas.height);
+
+    // Pipeline setup
+    gl.clearColor(0.95, 0.95, 0.95, 1.0);
     gl.frontFace(gl.CCW);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
-
-    // Depth(Z)-Buffer.
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
-
-    // Polygon offset of rastered Fragments.
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(1.0, 1.0);
 
-    // Compile vertex shader.
-    var vsSource = '' +
+    // Shader
+    const vsSource =
         'attribute vec3 pos;' +
         'attribute vec4 col;' +
         'varying vec4 color;' +
-        'void main(){' + 'color = col;' +
-        'gl_Position = vec4(pos, 1);' +
+        'void main(){' +
+        '  color = col;' +
+        '  gl_Position = vec4(pos, 1.0);' +
         '}';
-    var vs = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vs, vsSource);
-    gl.compileShader(vs);
 
-    // Compile fragment shader.
-    fsSouce = 'precision mediump float;' +
+    const fsSource =
+        'precision mediump float;' +
         'varying vec4 color;' +
-        'void main() {' +
-        'gl_FragColor = color;' +
+        'void main(){' +
+        '  gl_FragColor = color;' +
         '}';
-    var fs = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fs, fsSouce);
-    gl.compileShader(fs);
 
-    // Link shader together into a program.
-    var prog = gl.createProgram();
+    function compileShader(type, source) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, source);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.error('Shader-Fehler:', gl.getShaderInfoLog(sh));
+            gl.deleteShader(sh);
+            return null;
+        }
+        return sh;
+    }
+
+    const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+    const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+
+    const prog = gl.createProgram();
     gl.attachShader(prog, vs);
     gl.attachShader(prog, fs);
-    gl.bindAttribLocation(prog, 0, "pos");
+    gl.bindAttribLocation(prog, 0, 'pos'); // pos an Location 0
     gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error('Programm-Link-Fehler:', gl.getProgramInfoLog(prog));
+    }
     gl.useProgram(prog);
 
-    // Vertex data.
-    // Positions, Index data.
-    var vertices, indicesLines, indicesTris;
-    // Fill the data arrays.
-    createVertexData();
+    // Attribut-Locations
+    const posAttrib = gl.getAttribLocation(prog, 'pos');
+    const colAttrib = gl.getAttribLocation(prog, 'col'); // konstante Farbe
 
-    // Setup position vertex buffer object.
-    var vboPos = gl.createBuffer();
+    // Buffer
+    const vboPos = gl.createBuffer();
+    const iboLines = gl.createBuffer();
+    const iboTris  = gl.createBuffer();
+
+    // Position-Attribut
     gl.bindBuffer(gl.ARRAY_BUFFER, vboPos);
-    gl.bufferData(gl.ARRAY_BUFFER,
-        vertices, gl.STATIC_DRAW);
-    // Bind vertex buffer to attribute variable.
-    var posAttrib = gl.getAttribLocation(prog, 'pos');
-    gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT,
-        false, 0, 0);
+    gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(posAttrib);
 
-    // Setup constant color.
-    var colAttrib = gl.getAttribLocation(prog, 'col');
+    function uploadGeometry(geom) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, vboPos);
+        gl.bufferData(gl.ARRAY_BUFFER, geom.vertices, gl.STATIC_DRAW);
 
-    // Setup lines index buffer object.
-    var iboLines = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboLines);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
-        indicesLines, gl.STATIC_DRAW);
-    iboLines.numberOfElements = indicesLines.length;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboLines);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indicesLines, gl.STATIC_DRAW);
+        iboLines.numberOfElements = geom.indicesLines.length;
 
-    // Setup tris index buffer object.
-    var iboTris = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboTris);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
-        indicesTris, gl.STATIC_DRAW);
-    iboTris.numberOfElements = indicesTris.length;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboTris);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indicesTris, gl.STATIC_DRAW);
+        iboTris.numberOfElements = geom.indicesTris.length;
+    }
 
-    // Clear framebuffer and render primitives.
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Setup rendering tris.
-    gl.vertexAttrib4f(colAttrib, 0, 1, 1, 1);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboTris);
-    gl.drawElements(gl.TRIANGLES,
-        iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
+    let showSurface = true;
 
-    // Setup rendering lines.
-    gl.vertexAttrib4f(colAttrib, 0, 0, 1, 1);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboLines);
-    gl.drawElements(gl.LINES,
-        iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
+    function draw() {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    function createVertexData(){
-        var n = 64;
-        var m = 12;
-        // Positions.
-        vertices = new Float32Array(3 * (n+1) * (m+1));
-        // Index data.
-        indicesLines = new Uint16Array(2 * 2 * n * m);
-        indicesTris  = new Uint16Array(3 * 2 * n * m);
+        if (showSurface && iboTris.numberOfElements > 0) {
+            gl.vertexAttrib4f(colAttrib, 0.0, 1.0, 1.0, 1.0); // Cyan Fläche
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboTris);
+            gl.drawElements(gl.TRIANGLES, iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
+        }
 
-        var dt = 2*Math.PI/n;
-        var dr = 1/m;
-        // Counter for entries in index array.
-        var iLines = 0;
-        var iTris = 0;
+        gl.vertexAttrib4f(colAttrib, 0.0, 0.0, 1.0, 1.0); // Blau  Linien
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboLines);
+        gl.drawElements(gl.LINES, iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
+    }
 
-        // Loop angle t.
-        for(var i=0, t=0; i <= n; i++, t += dt) {
-            // Loop radius r.
-            for(var j=0, r=0; j <= m; j++, r += dr) {
+    // Kugel
+    function createSphere(n = 64, m = 64) {
+        const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+        const indicesLines = new Uint16Array(2 * 2 * n * m);
+        const indicesTris  = new Uint16Array(3 * 2 * n * m);
 
-                var iVertex = i*(m+1) + j;
+        const dt = 2 * Math.PI / n;
+        const dv = Math.PI / m;
+        let iLines = 0, iTris = 0;
 
-                var x = r * Math.cos(t);
-                var z = r * Math.sin(t);
-                var y = Math.cos(r*Math.PI);
+        for (let i = 0, t = 0; i <= n; ++i, t += dt) {
+            for (let j = 0, v = 0; j <= m; ++j, v += dv) {
+                const iVertex = i * (m + 1) + j;
 
-                // Set vertex positions.
-                vertices[iVertex * 3] = x;
-                vertices[iVertex * 3 + 1] = y;
-                vertices[iVertex * 3 + 2] = z;
+                const x = Math.sin(v) * Math.cos(t);
+                const y = Math.cos(v);
+                const z = Math.sin(v) * Math.sin(t);
 
-                // Set index.
-                // Line on beam.
-                if(j>0 && i>0){
+                vertices[3 * iVertex + 0] = x;
+                vertices[3 * iVertex + 1] = y;
+                vertices[3 * iVertex + 2] = z;
+
+                if (j > 0 && i > 0) {
+                    // Linien
                     indicesLines[iLines++] = iVertex - 1;
                     indicesLines[iLines++] = iVertex;
-                }
-                // Line on ring.
-                if(j>0 && i>0){
-                    indicesLines[iLines++] = iVertex - (m+1);
+                    indicesLines[iLines++] = iVertex - (m + 1);
                     indicesLines[iLines++] = iVertex;
-                }
 
-                // Set index.
-                // Two Triangles.
-                if(j>0 && i>0){
+                    // Dreiecke
                     indicesTris[iTris++] = iVertex;
                     indicesTris[iTris++] = iVertex - 1;
-                    indicesTris[iTris++] = iVertex - (m+1);
-                    //
+                    indicesTris[iTris++] = iVertex - (m + 1);
+
                     indicesTris[iTris++] = iVertex - 1;
-                    indicesTris[iTris++] = iVertex - (m+1) - 1;
-                    indicesTris[iTris++] = iVertex - (m+1);
+                    indicesTris[iTris++] = iVertex - (m + 1) - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1);
                 }
             }
         }
+        return { vertices, indicesLines, indicesTris };
     }
 
-    // Draw Helix.
-    //
-    gl.lineWidth(5.0);
+    // Torus
+    function createTorus(n = 128, m = 64, R = 0.6, a = 0.25) {
+        const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+        const indicesLines = new Uint16Array(2 * 2 * n * m);
+        const indicesTris  = new Uint16Array(3 * 2 * n * m);
 
-    // Vertex data.
-    // Positions, index data.
-    var indices;
-    // Fill the data arrays.
-    createVertexDataHelix();
+        const du = 2 * Math.PI / n;
+        const dv = 2 * Math.PI / m;
+        let iLines = 0, iTris = 0;
 
-    // Setup position vertex buffer object.
-    var vboPos = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vboPos);
-    gl.bufferData(gl.ARRAY_BUFFER,
-        vertices, gl.STATIC_DRAW);
-    // Bind vertex buffer to attribute variable.
-    var posAttrib = gl.getAttribLocation(prog, 'pos');
-    gl.vertexAttribPointer(posAttrib, 3,
-        gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(posAttrib);
+        for (let i = 0, u = 0; i <= n; ++i, u += du) {
+            for (let j = 0, v = 0; j <= m; ++j, v += dv) {
+                const iVertex = i * (m + 1) + j;
 
-    // Setup constant color.
-    var colAttrib = gl.getAttribLocation(prog, 'col');
-    gl.vertexAttrib4f(colAttrib, 1, 0, 0, 1);
+                const x = (R + a * Math.cos(v)) * Math.cos(u);
+                const y = a * Math.sin(v);
+                const z = (R + a * Math.cos(v)) * Math.sin(u);
 
-    // Setup index buffer object.
-    var ibo = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
-        indices, gl.STATIC_DRAW);
-    ibo.numberOfElements = indices.length;
+                vertices[3 * iVertex + 0] = x;
+                vertices[3 * iVertex + 1] = y;
+                vertices[3 * iVertex + 2] = z;
 
-    // Clear framebuffer and render primitives.
-    //gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawElements(gl.LINE_STRIP,
-        ibo.numberOfElements, gl.UNSIGNED_SHORT, 0);
+                if (j > 0 && i > 0) {
+                    // Linien
+                    indicesLines[iLines++] = iVertex - 1;
+                    indicesLines[iLines++] = iVertex;
+                    indicesLines[iLines++] = iVertex - (m + 1);
+                    indicesLines[iLines++] = iVertex;
 
-    function createVertexDataHelix(){
-        var m = 32;
-        var n = m * 3;
-        // Positions.
-        vertices = new Float32Array(3 * (n+1));
-        // Index data for Linestip.
-        indices = new Uint16Array(n+1);
+                    // Dreiecke
+                    indicesTris[iTris++] = iVertex;
+                    indicesTris[iTris++] = iVertex - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1);
 
-        var tn = 3 * 2 * Math.PI;
-        var dt = 2*Math.PI / m;
-        var t = 0;
-        var r = 0.8;
-
-        for(var i = 0; i <= n; i++, t += dt) {
-
-            //r = 1.0 - i/n;
-            //r = 1.0 - t / (2*Math.PI);
-
-            var x = r * Math.cos(t);
-            var z = r * Math.sin(t);
-            var y = 0.5 - t / tn;
-
-            // Set vertex positions.
-            vertices[i * 3] = x;
-            vertices[i * 3 + 1] = y;
-            vertices[i * 3 + 2] = z;
-
-            // Set index.
-            indices[i] = i;
+                    indicesTris[iTris++] = iVertex - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1) - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1);
+                }
+            }
         }
+        return { vertices, indicesLines, indicesTris };
     }
+
+    function createCustomShape(n = 128, m = 64) {
+        const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+        const indicesLines = new Uint16Array(2 * 2 * n * m);
+        const indicesTris  = new Uint16Array(3 * 2 * n * m);
+
+        const dt = 2 * Math.PI / n; // Winkel-Schritt
+        const dr = 1 / m;           // Radius-Schritt
+
+        let iLines = 0, iTris = 0;
+
+        for (let i = 0, t = 0; i <= n; ++i, t += dt) {
+            for (let j = 0, r = 0; j <= m; ++j, r += dr) {
+
+                const iVertex = i * (m + 1) + j;
+
+                const radius = r;
+                const x = radius * Math.cos(t);
+                const z = radius * Math.sin(t);
+                const y = 1.0 - r; // Kegel: Spitze bei y=1, Basis bei y=0
+
+                vertices[3 * iVertex + 0] = x;
+                vertices[3 * iVertex + 1] = y;
+                vertices[3 * iVertex + 2] = z;
+
+                if (j > 0 && i > 0) {
+                    // Linien
+                    indicesLines[iLines++] = iVertex - 1;
+                    indicesLines[iLines++] = iVertex;
+                    indicesLines[iLines++] = iVertex - (m + 1);
+                    indicesLines[iLines++] = iVertex;
+
+                    // Dreiecke
+                    indicesTris[iTris++] = iVertex;
+                    indicesTris[iTris++] = iVertex - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1);
+
+                    indicesTris[iTris++] = iVertex - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1) - 1;
+                    indicesTris[iTris++] = iVertex - (m + 1);
+                }
+            }
+        }
+        return { vertices, indicesLines, indicesTris };
+    }
+
+    // Formen wechseln, Fläche toggeln
+    const shapes = ['sphere', 'torus', 'customShape'];
+    let currentShapeIndex = 0;
+
+    function setShape(name) {
+        const geom =
+            name === 'sphere' ? createSphere() :
+                name === 'torus'  ? createTorus()  :
+                    name === 'customShape'  ? createCustomShape()  : null;
+        if (!geom) return;
+        uploadGeometry(geom);
+        draw();
+    }
+
+    function cycleShape() {
+        currentShapeIndex = (currentShapeIndex + 1) % shapes.length;
+        setShape(shapes[currentShapeIndex]);
+    }
+
+    function toggleSurface() {
+        showSurface = !showSurface;
+        updateSurfaceButtonLabel();
+        draw();
+    }
+
+    function updateSurfaceButtonLabel() {
+        const btn = document.getElementById('surfaceBtn');
+        btn.textContent = showSurface ? 'Flaeche aus' : 'Flaeche an';
+    }
+
+    // Buttons
+    document.getElementById('cycleBtn').onclick = cycleShape;
+    document.getElementById('surfaceBtn').onclick = toggleSurface;
+
+    //Anzeige
+    updateSurfaceButtonLabel();
+    setShape(shapes[currentShapeIndex]);
 </script>
 </body>
 </html>
