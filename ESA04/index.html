@@ -84,14 +84,14 @@
     const prog = gl.createProgram();
     gl.attachShader(prog, vs);
     gl.attachShader(prog, fs);
-    gl.bindAttribLocation(prog, 0, 'pos'); // pos an Location 0
+    gl.bindAttribLocation(prog, 0, 'pos');
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
         console.error('Programm-Link-Fehler:', gl.getProgramInfoLog(prog));
     }
     gl.useProgram(prog);
 
-    // Attribut-Locations
+    // Attribute
     const posAttrib = gl.getAttribLocation(prog, 'pos');
     const colAttrib = gl.getAttribLocation(prog, 'col'); // konstante Farbe
 
@@ -239,7 +239,7 @@
                 const radius = r;
                 const x = radius * Math.cos(t);
                 const z = radius * Math.sin(t);
-                const y = 1.0 - r; // Kegel: Spitze bei y=1, Basis bei y=0
+                const y = 1.0 - r; // Spitze bei y=1
 
                 vertices[3 * iVertex + 0] = x;
                 vertices[3 * iVertex + 1] = y;
