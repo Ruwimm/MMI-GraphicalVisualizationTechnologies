@@ -48,22 +48,30 @@
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(1.0, 1.0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // Shader
     const vsSource =
         'attribute vec3 pos;' +
-        'attribute vec4 col;' +
-        'varying vec4 color;' +
+        'varying float vT;' +
         'void main(){' +
-        '  color = col;' +
         '  gl_Position = vec4(pos, 1.0);' +
+        '  vT = clamp(0.5 * pos.y + 0.5, 0.0, 1.0);' +  // mappe y in [0,1]
         '}';
 
     const fsSource =
         'precision mediump float;' +
-        'varying vec4 color;' +
+        'varying float vT;' +
+        'uniform bool uUseFlatColor;' +
+        'uniform vec4 uFlatColor;' +
+        'uniform vec3 uColorTop;' +
+        'uniform vec3 uColorBottom;' +
         'void main(){' +
-        '  gl_FragColor = color;' +
+        '  vec3 grad = mix(uColorBottom, uColorTop, vT);' +
+        '  vec4 col = vec4(grad, 1.0);' +
+        '  if (uUseFlatColor) col = uFlatColor;' +
+        '  gl_FragColor = col;' +
         '}';
 
     function compileShader(type, source) {
@@ -90,10 +98,14 @@
         console.error('Programm-Link-Fehler:', gl.getProgramInfoLog(prog));
     }
     gl.useProgram(prog);
+    const uUseFlatColorLoc  = gl.getUniformLocation(prog, 'uUseFlatColor');
+    const uFlatColorLoc     = gl.getUniformLocation(prog, 'uFlatColor');
+    const uColorTopLoc      = gl.getUniformLocation(prog, 'uColorTop');
+    const uColorBottomLoc   = gl.getUniformLocation(prog, 'uColorBottom');
 
     // Attribute
     const posAttrib = gl.getAttribLocation(prog, 'pos');
-    const colAttrib = gl.getAttribLocation(prog, 'col'); // konstante Farbe
+    //const colAttrib = gl.getAttribLocation(prog, 'col'); // konstante Farbe
 
     // Buffer
     const vboPos = gl.createBuffer();
@@ -124,13 +136,23 @@
     function draw() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+        const bottom = new Float32Array([1.0, 0.5, 0.2]); // Orange
+        const top    = new Float32Array([0.1, 0.6, 1.0]); //Blau
+
         if (showSurface && iboTris.numberOfElements > 0) {
-            gl.vertexAttrib4f(colAttrib, 0.0, 1.0, 1.0, 1.0); // Cyan Fläche
+            gl.uniform1i(uUseFlatColorLoc, 0); // Verlauf benutzen
+            gl.uniform3fv(uColorBottomLoc, bottom);
+            gl.uniform3fv(uColorTopLoc, top);
+
+            //gl.vertexAttrib4f(colAttrib, 0.0, 1.0, 1.0, 1.0); // Cyan Fläche
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboTris);
             gl.drawElements(gl.TRIANGLES, iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
         }
+        // Linien konstant blau
+        gl.uniform1i(uUseFlatColorLoc, 1); // Flat-Color einschalten
+        gl.uniform4f(uFlatColorLoc, 0.2, 0.16, 0.12, 0.25);
 
-        gl.vertexAttrib4f(colAttrib, 0.0, 0.0, 1.0, 1.0); // Blau  Linien
+        //gl.vertexAttrib4f(colAttrib, 0.0, 0.0, 1.0, 1.0); // Blau  Linien
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboLines);
         gl.drawElements(gl.LINES, iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
     }
