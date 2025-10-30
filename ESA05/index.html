@@ -153,9 +153,10 @@
         indicesLines = new Uint16Array(2 * 2 * n * m);
         indicesTris  = new Uint16Array(3 * 2 * n * m);
 
-        var du = 2 * Math.PI/n;
-        var dv = Math.PI/m;
-        var r = 1;
+        var du = 2*Math.PI/n;
+        var dv = 2*Math.PI/m;
+        var r = 0.3;
+        var R = 0.5;
         // Counter for entries in index array.
         var iLines = 0;
         var iTris = 0;
@@ -167,9 +168,9 @@
 
                 var iVertex = i*(m+1) + j;
 
-                var x = r * Math.sin(v) * Math.cos(u);
-                var y = r * Math.sin(v) * Math.sin(u);
-                var z = r * Math.cos(v);
+                var x = ( R + r*Math.cos(u) ) * Math.cos(v);
+                var y = ( R + r*Math.cos(u) ) * Math.sin(v);
+                var z = r*Math.sin(u);
 
                 // Set vertex positions.
                 vertices[iVertex * 3] = x;
@@ -177,10 +178,12 @@
                 vertices[iVertex * 3 + 2] = z;
 
                 // Calc and set normals.
-                var vertexLength = Math.sqrt(x*x+y*y+z*z);
-                normals[iVertex * 3] = x/vertexLength;
-                normals[iVertex * 3 + 1] = y/vertexLength;
-                normals[iVertex * 3 + 2] = z/vertexLength;
+                var nx = Math.cos(u)* Math.cos(v);
+                var ny = Math.cos(u) * Math.sin(v);
+                var nz = Math.sin(u);
+                normals[iVertex * 3] = nx;
+                normals[iVertex * 3 + 1] = ny;
+                normals[iVertex * 3 + 2] = nz;
 
                 // Set index.
                 // Line on beam.
