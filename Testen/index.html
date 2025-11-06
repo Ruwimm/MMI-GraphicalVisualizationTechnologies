@@ -6,14 +6,16 @@
     <title>Testen</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" media="screen" href="style.css" />
+    <script src="gl-matrix.js" defer></script>
     <script src="scriptTesten.js" defer></script>
 </head>
 <body>
-    <h1>Testen</h1>
-    <canvas>
-
-
-    </canvas>
-
+    <h1>Triangle</h1>
+    <canvas width="240" height="240"></canvas>
+    <script>
+        const _c = document.querySelector("canvas");
+        _c.width = window.innerWidth;
+        _c.height = window.innerHeight;
+    </script>
 </body>
 </html>
