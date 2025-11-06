@@ -6,9 +6,11 @@
     <link rel="stylesheet" href="style.css">
 
     <script src="gl-matrix.js"></script>
-    <script src="GVT_Src_vertexData_torus.js"></script>
-    <script src="GVT_Src_vertexData_plane.js"></script>
-    <script src="KAP_Src_tpl.js"></script>
+    <script src="vertexData_torus.js"></script>
+    <script src="vertexData_plane.js"></script>
+    <script src="vertexData_RecursiveSphere.js"></script>
+    <script src="vertexData_icoSphere.js"></script>
+    <script src="app.js"></script>
     <script type="x-shader/x-vertex" id="vertexshader">
         attribute vec3 aPosition;
         attribute vec3 aNormal;
@@ -38,6 +40,11 @@
 <body onload="app.start()">
 <h1 id="title">ESA 5 - Kamerabewegung</h1>
 <canvas id="canvas" width="500" height="500"></canvas>
+<div id="SettingsButtons">
+    <button id="btnSubDivDec">Subdiv −</button>
+    <button id="btnSubDivInc">Subdiv +</button>
+    <button id="btnToggleWire">Wireframe: an</button>
+</div>
 
 <div id="hinweise">
     <h2>Allgemeine Hinweise</h2>
@@ -54,6 +61,7 @@
 </div>
 <div id="Buttons">
     <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+
 </div>
 </body>
 <html>

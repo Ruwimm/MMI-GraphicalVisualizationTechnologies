@@ -27,7 +27,7 @@ var plane = ( function() {
 		// Loop angle u.
 		for(var i = 0, u = -10; i <= n; i++, u += du) {
 			// Loop angle v.
-			for(var j = 0, v = 10; j <= m; j++, v += dv) {
+			for(var j = 0, v = -10; j <= m; j++, v += dv) {
 
 				var iVertex = i * (m + 1) + j;
 
@@ -44,9 +44,9 @@ var plane = ( function() {
 				var nx = Math.cos(u) * Math.cos(v);
 				var ny = Math.cos(u) * Math.sin(v);
 				var nz = Math.sin(u);
-				normals[iVertex * 3] = nx;
-				normals[iVertex * 3 + 1] = ny;
-				normals[iVertex * 3 + 2] = nz;
+				normals[iVertex * 3] = 0;
+				normals[iVertex * 3 + 1] = 1;
+				normals[iVertex * 3 + 2] = 0;
 
 				// if(i>14){
 				// continue;
