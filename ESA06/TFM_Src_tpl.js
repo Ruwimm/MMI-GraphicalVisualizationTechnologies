@@ -128,8 +128,12 @@ var app = ( function() {
 		// Model-View-Matrix.
 		prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
 
+        prog.nMatrixUniform  = gl.getUniformLocation(prog, "uNMatrix");
+
         prog.colorUniform = gl.getUniformLocation(prog, "uColor");
-	}
+
+
+    }
 
 	function initModels() {
 		// fillstyle
@@ -180,6 +184,8 @@ var app = ( function() {
 
 		// Create and initialize Model-View-Matrix.
 		model.mvMatrix = mat4.create();
+
+        model.nMatrix = mat3.create();
 	}
 
 	/**
@@ -325,9 +331,9 @@ var app = ( function() {
             // Update modelview for model.
 			updateTransformations(models[i]);
 
-			// Set uniforms for model.
-			gl.uniformMatrix4fv(prog.mvMatrixUniform, false, 
-				models[i].mvMatrix);
+            gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
+            gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
+            gl.uniform4fv(prog.colorUniform, models[i].color);
 			
 			draw(models[i]);
 		}
@@ -379,6 +385,8 @@ var app = ( function() {
 
         // View und Model kombinieren
         mat4.multiply(mvMatrix, camera.vMatrix, mMatrix);
+
+        mat3.normalFromMat4(model.nMatrix, mvMatrix);
     }
 
 	function draw(model) {

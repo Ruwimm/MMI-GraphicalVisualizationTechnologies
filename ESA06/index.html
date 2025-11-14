@@ -16,14 +16,19 @@
 
         uniform mat4 uPMatrix;
         uniform mat4 uMVMatrix;
+        uniform mat3 uNMatrix;
         uniform vec4 uColor;
-
 
         varying vec4 vColor;
 
+
         void main(){
             gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
-            vColor = uColor;
+
+            vec3 tNormal = normalize(uNMatrix * aNormal);
+
+            float g = 0.5 * (tNormal.z + 1.0);
+            vColor = vec4(uColor.rgb * g, uColor.a);
         }
     </script>
     <script type="x-shader/x-fragment" id="fragmentshader">
