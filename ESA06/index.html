@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 5 - Kamerabewegung</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_sphere.js"></script>
+    <script src="GVT_Src_vertexData_torus.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
+    <script src="TFM_Src_tpl.js"></script>
+    <script type="x-shader/x-vertex" id="vertexshader">
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+
+        uniform mat4 uPMatrix;
+        uniform mat4 uMVMatrix;
+        uniform vec4 uColor;
+
+
+        varying vec4 vColor;
+
+        void main(){
+            gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
+            vColor = uColor;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        precision mediump float;
+        varying vec4 vColor;
+
+        void main() {
+            gl_FragColor = vColor;
+        }
+    </script>
+
+</head>
+<body onload="app.start()">
+
+<h1 id="title">ESA 6 - Objekte Bewegen</h1>
+<canvas id="canvas" width="500" height="500"></canvas>
+<div id="SettingsButtons">
+    <button id="btnSubDivDec">Subdiv −</button>
+    <button id="btnSubDivInc">Subdiv +</button>
+    <button id="btnToggleWire">Wireframe: an</button>
+</div>
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            Pfeiltasten: Links/Rechts drehen <br>
+
+            N: Radius erhöhen <br>
+
+            Shift + N: Radius verringern
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Hier werden eine Kugel, ein Torus, eine Icosphere und eine Ground Plane dargestellt
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Es wurden keine externen Quellen verwendet
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+
+</div>
+</body>
+<html>
