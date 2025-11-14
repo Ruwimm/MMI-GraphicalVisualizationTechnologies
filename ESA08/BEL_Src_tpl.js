@@ -57,6 +57,15 @@ var app = (function() {
         angle: 0
     };
 
+    var useToon = false;           // Start mit Phong
+    var toonLevels = 4;            // Anzahl Helligkeitsbänder
+    var toonSpecThreshold = 0.5;   // Schwellwert fürs Highlight-Band
+    // var animateLights = false;   // läuft/pausiert
+    var stepOnce = false;        // einmaliger Schritt im Pausenmodus
+    var lastTime = 0;
+    var stepDt = 1/60;
+
+
     function updateLights(dt) {
         // Winkel
         lightOrbit.angle += lightOrbit.speed * dt;
@@ -82,14 +91,13 @@ var app = (function() {
 
         if (animateLights) {
             updateLights(dt);
+        } else if (stepOnce) {
+            updateLights(stepDt); // ein Schritt
+            stepOnce = false;
         }
         render();
         requestAnimationFrame(loop);
     }
-
-
-
-    var lastTime = 0;
 
 
     function start() {
@@ -209,6 +217,10 @@ var app = (function() {
         prog.materialKdUniform = gl.getUniformLocation(prog, "material.kd");
         prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
         prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
+
+        prog.useToonUniform = gl.getUniformLocation(prog, "useToon");
+        prog.toonLevelsUniform = gl.getUniformLocation(prog, "uToonLevels");
+        prog.toonSpecThresholdUniform = gl.getUniformLocation(prog, "uSpecThreshold");
     }
 
     /**
@@ -350,26 +362,7 @@ var app = (function() {
             // console.log(evt);
             // Use shift key to change sign.
             var sign = evt.shiftKey ? -1 : 1;
-            // Rotate interactiveModel.
-            switch (c) {
-            case ('X'):
-                interactiveModel.rotate[0] += sign * deltaRotate;
-                break;
-            case ('Y'):
-                interactiveModel.rotate[1] += sign * deltaRotate;
-                break;
-            case ('Z'):
-                interactiveModel.rotate[2] += sign * deltaRotate;
-                break;
-            }
-            // Scale/squeese interactiveModel.
-            switch (c) {
-            case ('S'):
-                interactiveModel.scale[0] *= 1 + sign * deltaScale;
-                interactiveModel.scale[1] *= 1 - sign * deltaScale;
-                interactiveModel.scale[2] *= 1 + sign * deltaScale;
-                break;
-            }
+
             // Change projection of scene.
             switch (c) {
             case ('O'):
@@ -409,8 +402,15 @@ var app = (function() {
             }
 
             switch (c) {
-                case ('L'):
+                case ('R'):
                     animateLights = !animateLights;
+                    break;
+                case ('T'):
+                    useToon = !useToon;
+                    break;
+                case ('L'):
+                    // Nur im Pausenmodus einen Schritt machen
+                    if (!animateLights) stepOnce = true;
                     break;
             }
             // Render the scene again on any key pressed.
@@ -473,6 +473,10 @@ var app = (function() {
             gl.uniform3fv(prog.materialKdUniform, models[i].material.kd);
             gl.uniform3fv(prog.materialKsUniform, models[i].material.ks);
             gl.uniform1f(prog.materialKeUniform, models[i].material.ke);
+
+            gl.uniform1i(prog.useToonUniform, useToon ? 1 : 0);
+            gl.uniform1i(prog.toonLevelsUniform, toonLevels);
+            gl.uniform1f(prog.toonSpecThresholdUniform, toonSpecThreshold);
 
             draw(models[i]);
         }

@@ -61,47 +61,79 @@
         };
         uniform LightSource light[MAX_LIGHT_SOURCES];
 
-        // Phong illumination for single light source,
-        // no ambient light.
-        vec3 phong(vec3 p, vec3 n, vec3 v, LightSource l) {
+        uniform bool useToon;
+        uniform int uToonLevels;
+        uniform float uSpecThreshold;
 
-            vec3 L = l.color;
+        //Hilfsfunktion
+        float quantize01(float x, int levels) {
+        float L = float(levels);
+        if (levels <= 1) return step(0.0, x);
+        return floor(clamp(x, 0.0, 1.0) * (L - 1.0) + 1e-5) / (L - 1.0);
+        }
 
+        // Phong pro Lichtquelle
+        vec3 phongLight(vec3 p, vec3 n, vec3 v, LightSource l) {
+            vec3 Lc = l.color;
             vec3 s = normalize(l.position - p);
             vec3 r = reflect(-s, n);
-
-            float sn = max( dot(s,n), 0.0);
-            float rv = max( dot(r,v), 0.0);
-
-            vec3 diffuse = material.kd * L * sn;
-
-            vec3 specular = material.ks * L * pow(rv, material.ke);
-
+            float sn = max(dot(s, n), 0.0);
+            float rv = max(dot(r, v), 0.0);
+            vec3 diffuse = material.kd * Lc * sn;
+            vec3 specular = material.ks * Lc * pow(rv, material.ke);
             return diffuse + specular;
         }
 
-        // Phong illumination for multiple light sources
-        vec3 phong(vec3 p, vec3 n, vec3 v) {
+        // Toon pro Lichtquelle
+        vec3 toonLight(vec3 p, vec3 n, vec3 v, LightSource l) {
+            vec3 Lc = l.color;
+            vec3 s = normalize(l.position - p);
+            vec3 r = reflect(-s, n);
+            float sn = max(dot(s, n), 0.0);
+            float rv = max(dot(r, v), 0.0);
 
-            // Calculate ambient light.
+            // Diffuse in Bänder zerlegen
+            float shade = quantize01(sn, uToonLevels);
+
+            // Spekular als hartes Highlight-Band
+            float spec = pow(rv, material.ke);
+            float specBand = step(uSpecThreshold, spec);
+
+            vec3 diffuse = material.kd * Lc * shade;
+            vec3 specular = material.ks * Lc * specBand;
+            return diffuse + specular;
+        }
+
+        // Aufsummieren über alle Lichter
+        vec3 shadePhong(vec3 p, vec3 n, vec3 v) {
             vec3 result = material.ka * ambientLight;
+            for (int j = 0; j < MAX_LIGHT_SOURCES; j++) {
+                if (light[j].isOn) {
+                    result += phongLight(p, n, v, light[j]);
+                }
+            }
+            return result;
+        }
 
-            // Add light from all light sources.
-            for(int j=0; j < MAX_LIGHT_SOURCES; j++){
-                if(light[j].isOn){
-                    result += phong(p, n, v, light[j]);
+        vec3 shadeToon(vec3 p, vec3 n, vec3 v) {
+            vec3 result = material.ka * ambientLight;
+            for (int j = 0; j < MAX_LIGHT_SOURCES; j++) {
+                if (light[j].isOn) {
+                    result += toonLight(p, n, v, light[j]);
                 }
             }
             return result;
         }
 
         void main() {
-            // Calculate view vector.
+            // View- und Normalvektoren berechnen
             vec3 v = normalize(-vPosition.xyz);
+            vec3 n = normalize(vNormal);
 
-            vec3 vNormal = normalize(vNormal);
+            vec3 color = useToon ? shadeToon(vPosition.xyz, n, v)
+                                 : shadePhong(vPosition.xyz, n, v);
 
-            gl_FragColor = vec4( phong(vPosition.xyz, vNormal, v), 1.0);
+            gl_FragColor = vec4(color, 1.0);
         }
     </script>
 
@@ -117,18 +149,29 @@
     <ul>
         <li>
             <b>Steuerung:</b>
-            WASD: Links/Rechts und Oben/Unten <br>
+            R: Lichtanimation starten/Stoppen <br>
+            L: Lichter Frame weiter <br>
+            T: Toon Shader aktivieren/deaktivieren <br>
 
-            Pfeiltasten: Drehen (4 Richtungen)
+            O: Ortho <br>
+            F: Frustum <br>
+            P: Perspective <br>
+
+            C: Kamera Orbit <br>
+            H: Kamera hoch/runter <br>
+            D: Kamera Distanz <br>
+
+            V: Kamera FOV<br>
+
 
         </li>
         <li>
             <b>Darstellung:</b>
-            Zwei Torus, zwei Kugeln, Boden mit displacement
+            Zwei Kugeln und ein Torus auf einem Boden
         </li>
         <li>
             <b>Quelle:</b>
-            Kursmaterialien
+            Kursmaterialien. Cell-Shading war mir bereits bekannt, daher keine Quellen notwendig
         </li>
     </ul>
 </div>
