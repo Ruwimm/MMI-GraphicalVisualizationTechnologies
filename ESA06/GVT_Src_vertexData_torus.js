@@ -18,7 +18,7 @@ var torus = ( function() {
 
 		var du = 2 * Math.PI / n;
 		var dv = 2 * Math.PI / m;
-		var r = 0.3;
+		var r = 0.1;
 		var R = 0.5;
 		// Counter for entries in index array.
 		var iLines = 0;

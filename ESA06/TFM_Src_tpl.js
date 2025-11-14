@@ -1,3 +1,15 @@
+var anim = {
+    t: 0,           // Gesamtwinkel/Phase in Radiant
+    step: 0.1,
+    speed: 1,
+    auto: false,
+    rPath: 1,     // Bahnradius der Kugeln
+    yPath: 0.0,      // Höhe der Bahn
+    offset : [1, 0, 0],
+    lock : 0.5,
+    phase : 40,
+};
+
 var app = ( function() {
 
 	var gl;
@@ -135,26 +147,89 @@ var app = ( function() {
 
     }
 
-	function initModels() {
-		// fillstyle
-		var fs = "fill";
-        createModel("torus", fs, [ 1, 1, 1, 1 ], [ 0, 0, 0 ], [ 0, 0, 0 ], [
-            1, 1, 1 ]);
-        createModel("plane", "wireframe", [ 1, 1, 1, 1 ], [ 0, -.8, 0 ], [
-            0, 0, 0 ], [ 1, 1, 1 ]);
-        createModel("sphere", fs, [ 0, 1, 1, 1 ], [ 1, -.3, -1 ],
-            [ 0, 0, 0 ], [ .5, .5, .5 ]);
-        createModel("sphere", fs, [ 1, 0, 1, 1 ], [ -1, -.3, -1 ],
-            [ 0, 0, 0 ], [ .5, .5, .5 ]);
-        createModel("sphere", fs, [ 0, 0, 1, 1 ], [ 1, -.3, 1 ],
-            [ 0, 0, 0 ], [ .5, .5, .5 ]);
-        createModel("sphere", fs, [ 1, 1, 0, 1 ], [ -1, -.3, 1 ],
-            [ 0, 0, 0 ], [ .5, .5, .5 ]);
-		// Select one model that can be manipulated interactively by user.
-		interactiveModel = models[0];
-	}
+    var sphereIdx = [];   // Indizes der 4 Kugeln
 
-	/**
+	function initModels() {
+        // fillstyle
+        var fs = "fill";
+
+
+        createModel("torus", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [
+            1.2, 1.2, 1.2]);
+
+        createModel("plane", "wireframe", [1, 1, 1, 1], [0, -.8, 0], [
+            0, 0, 0], [1, 1, 1]);
+
+        createModel("sphere", fs, [0, 1, 1, 1], [1, -.3, -1],
+            [0, 0, 0], [.2, .2, .2]);
+        createModel("sphere", fs, [1, 0, 1, 1], [-1, -.3, -1],
+            [0, 0, 0], [.2, .2, .2]);
+        createModel("sphere", fs, [0, 0, 1, 1], [1, -.3, 1],
+            [0, 0, 0], [.2, .2, .2]);
+        createModel("sphere", fs, [1, 1, 0, 1], [-1, -.3, 1],
+            [0, 0, 0], [.2, .2, .2]);
+
+        // Select one model that can be manipulated interactively by user.
+        interactiveModel = models[0];
+
+        sphereIdx = [2, 3, 4, 5];
+
+        for (var j = 0; j < sphereIdx.length; j++) {
+            var m = models[sphereIdx[j]];
+            m.orbit = {
+                phaseOffset: j * Math.PI / 2, // 0, 90°, 180°, 270°
+                r: anim.rPath,
+                y: anim.yPath
+            };
+        }
+        advanceAnimation(0);
+
+    }
+
+    var lastTime = 0;     // für Automatik
+
+    function advanceAnimation(deltaAngle) {
+        anim.t += deltaAngle;
+
+        var torus = models[0];
+        var cx = torus.translate[0];
+        var cy = torus.translate[1];
+        var cz = torus.translate[2];
+
+        var k = anim.lock;
+        var phi = anim.phase;
+
+        // Kugeln auf Kreisbahn im XZ-Plane mit Phasenversatz
+        for (var j = 0; j < sphereIdx.length; j++) {
+            var m = models[sphereIdx[j]];
+            var ang = k * anim.t + phi + m.orbit.phaseOffset;
+            m.translate[0] = cx + anim.offset[0] + m.orbit.r * Math.cos(ang);
+            m.translate[1] = cy + anim.offset[1] + m.orbit.y;
+            m.translate[2] = cz + anim.offset[2] + m.orbit.r * Math.sin(ang);
+        }
+
+
+
+        torus.rotate[0] = anim.t;
+        torus.rotate[1] = 0;
+        torus.rotate[2] = 0;
+    }
+
+    function tick(timestamp) {
+        if (!anim.auto) return;
+        if (!lastTime) lastTime = timestamp;
+        var dt = (timestamp - lastTime) / 1000; // Sekunden
+        lastTime = timestamp;
+
+        var deltaAngle = dt * anim.speed * 2 * Math.PI; // U/s -> rad/s
+        advanceAnimation(deltaAngle);
+        render();
+        requestAnimationFrame(tick);
+    }
+
+
+
+    /**
 	 * Create model object, fill it and push it in models array.
 	 * 
 	 * @parameter geometryname: string with name of geometry.
@@ -279,30 +354,58 @@ var app = ( function() {
 					// Camera fovy in radian.
 					camera.fovy += sign * 5 * Math.PI / 180;
 					break;
-				case('B'):
-					// Camera near plane dimensions.
-					camera.lrtb += sign * 0.1;
-					break;
+				// case('B'):
+				// 	// Camera near plane dimensions.
+				// 	camera.lrtb += sign * 0.1;
+				// 	break;
 			}
 
-            // Rotate interactive Model.
-            switch(c) {
-                case('X'):
-                    interactiveModel.rotate[0] += sign * deltaRotate;
-                    break;
-                case('Y'):
-                    interactiveModel.rotate[1] += sign * deltaRotate;
-                    break;
-                case('Z'):
-                    interactiveModel.rotate[2] += sign * deltaRotate;
-                    break;
-            }
+            // // Rotate interactive Model.
+            // switch(c) {
+            //     case('X'):
+            //         interactiveModel.rotate[0] += sign * deltaRotate;
+            //         break;
+            //     case('Y'):
+            //         interactiveModel.rotate[1] += sign * deltaRotate;
+            //         break;
+            //     case('Z'):
+            //         interactiveModel.rotate[2] += sign * deltaRotate;
+            //         break;
+            // }
 
-            switch(c) {
-                case('S'):
-                    interactiveModel.scale[0] *= 1 + sign * deltaScale;
-                    interactiveModel.scale[1] *= 1 - sign * deltaScale;
-                    interactiveModel.scale[2] *= 1 + sign * deltaScale;
+            // switch(c) {
+            //     case('S'):
+            //         interactiveModel.scale[0] *= 1 + sign * deltaScale;
+            //         interactiveModel.scale[1] *= 1 - sign * deltaScale;
+            //         interactiveModel.scale[2] *= 1 + sign * deltaScale;
+            //         break;
+            // }
+
+            switch (c) {
+                case ('K'):
+                    if (anim.auto) {
+                        // Automatik aus
+                        anim.auto = false;
+                    } else {
+                        // Einzelschritt
+                        advanceAnimation(anim.step);
+                        render();
+                    }
+                    break;
+                case ('R'):
+                    // Automatik umschalten
+                    anim.auto = !anim.auto;
+                    if (anim.auto) {
+                        lastTime = 0;
+                        requestAnimationFrame(tick);
+                    }
+                    break;
+                //Geschwindigkeit ändern
+                case ('+'):
+                    anim.speed *= 1.1;
+                    break;
+                case ('-'):
+                    anim.speed /= 1.1;
                     break;
             }
 			// Render the scene again on any key pressed.
@@ -333,7 +436,6 @@ var app = ( function() {
 
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
-            gl.uniform4fv(prog.colorUniform, models[i].color);
 			
 			draw(models[i]);
 		}

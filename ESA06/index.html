@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>ESA 5 - Kamerabewegung</title>
+    <title>ESA 6 - Objekte bewegen - fliegende Kugeln</title>
     <link rel="stylesheet" href="style.css">
 
     <script src="gl-matrix.js"></script>
@@ -43,32 +43,35 @@
 </head>
 <body onload="app.start()">
 
-<h1 id="title">ESA 6 - Objekte Bewegen</h1>
+<h1 id="title">ESA 6 - Objekte Bewegen - fliegende Kugeln</h1>
 <canvas id="canvas" width="500" height="500"></canvas>
-<div id="SettingsButtons">
-    <button id="btnSubDivDec">Subdiv −</button>
-    <button id="btnSubDivInc">Subdiv +</button>
-    <button id="btnToggleWire">Wireframe: an</button>
-</div>
+<!--<div id="SettingsButtons">-->
+<!--    <button id="btnToggleAnimation">Animation: an</button>-->
+<!--</div>-->
 
 <div id="hinweise">
     <h2>Allgemeine Hinweise</h2>
     <ul>
         <li>
             <b>Steuerung:</b>
-            Pfeiltasten: Links/Rechts drehen <br>
+            R: Animation starten/Stoppen <br>
+            K: Frame weiter <br>
 
-            N: Radius erhöhen <br>
+            C/Shift C: Kamera Orbit <br>
 
-            Shift + N: Radius verringern
+            H/Shift H: Kamera Hoch/Runter <br>
+
+            D/Shift D: Kamera Distanz <br>
+
+            V/Shift V: Kamera FOV <br>
         </li>
         <li>
             <b>Darstellung:</b>
-            Hier werden eine Kugel, ein Torus, eine Icosphere und eine Ground Plane dargestellt
+            Ein Torus und 4 Kugeln drehen sich ohne sich berühren
         </li>
         <li>
             <b>Quelle:</b>
-            Es wurden keine externen Quellen verwendet
+            Kursmaterialien
         </li>
     </ul>
 </div>
