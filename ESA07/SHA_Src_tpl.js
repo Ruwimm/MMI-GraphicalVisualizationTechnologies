@@ -14,7 +14,7 @@ var app = ( function() {
 
 	var camera = {
 		// Initial position of the camera.
-		eye : [0, 1, 10],
+		eye : [0, 1, 4],
 		// Point to look at.
 		center : [0, 0, 0],
 		// Roll and pitch of the camera.
@@ -146,13 +146,16 @@ var app = ( function() {
 		var fs = "fill";
 		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [1, 1, 1]);
 
-        // Kugel links-vorne
+
         createModel("sphere", fs, [1, 1, 1, 1], [1.1, 0.5, 1.5], [0, 0, 0], [0.5, 0.5, 0.5]);
 
-        // Torus mittig-hinten
+
+        createModel("sphere", fs, [1, 1, 1, 1], [-1, 0.3, 1], [0, 0, 0], [0.3, 0.3, 0.3]);
+
+
         createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2], [Math.PI/2, 0, 0], [1, 1, 1]);
 
-        // Torus mittig-hinten
+
         createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2], [Math.PI/2, 0, 0], [3, 3, 3]);
 
 
@@ -239,113 +242,106 @@ var app = ( function() {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 	}
 
-	function initEventHandler() {
-		// Rotation step for models.
-		var deltaRotate = Math.PI / 36;
-		var deltaTranslate = 0.05;
-		var deltaScale = 0.05;
+    function initEventHandler() {
+        var deltaRotate = Math.PI / 36; // 5°
+        var deltaMove = 0.1;
 
-		window.onkeydown = function(evt) {
-			var key = evt.which ? evt.which : evt.keyCode;
-			var c = String.fromCharCode(key);
-			//console.log(evt);
-			// Use shift key to change sign.
-			var sign = evt.shiftKey ? -1 : 1;
+        window.onkeydown = function(evt) {
+            var key = evt.which ? evt.which : evt.keyCode;
 
-			// Rotate interactiveModel.
-			switch(c) {
-				case('X'):
-					interactiveModel.rotate[0] += sign * deltaRotate;
-					break;
-				case('Y'):
-					interactiveModel.rotate[1] += sign * deltaRotate;
-					break;
-				case('Z'):
-					interactiveModel.rotate[2] += sign * deltaRotate;
-					break;
-			}
-			// Scale/squeese interactiveModel.
-			switch(c) {
-				case('S'):
-					interactiveModel.scale[0] *= 1 + sign * deltaScale;
-					interactiveModel.scale[1] *= 1 - sign * deltaScale;
-					interactiveModel.scale[2] *= 1 + sign * deltaScale;
-					break;
-			}
-			// Change projection of scene.
-			switch(c) {
-				case('O'):
-					camera.projectionType = "ortho";
-					camera.lrtb = 2;
-					break;
-				case('F'):
-					camera.projectionType = "frustum";
-					camera.lrtb = 1.2;
-					break;
-				case('P'):
-					camera.projectionType = "perspective";
-					break;
-			}
-			// Camera move and orbit.
-			switch(c) {
-				case('C'):
-					// Orbit camera.
-					camera.zAngle += sign * deltaRotate;
-					break;
-				case('H'):
-					// Move camera up and down.
-					camera.eye[1] += sign * deltaTranslate;
-					break;
-				case('D'):
-					// Camera distance to center.
-					camera.distance += sign * deltaTranslate;
-					break;
-				case('V'):
-					// Camera fovy in radian.
-					camera.fovy += sign * 5 * Math.PI / 180;
-					break;
-				case('B'):
-					// Camera near plane dimensions.
-					camera.lrtb += sign * 0.1;
-					break;
-			}
-			// Render the scene again on any key pressed.
-			render();
-		};
-	}
+            // Pfeiltasten: Szene drehen (Yaw/Pitch)
+            if (key === 37) { // Left
+                sceneRotation.yaw += deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 39) { // Right
+                sceneRotation.yaw -= deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 38) { // Up
+                sceneRotation.pitch += deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 40) { // Down
+                sceneRotation.pitch -= deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+
+            // Buchstaben-Tasten (WASD): Kamera in XY bewegen
+            var c = String.fromCharCode(key);
+            switch (c) {
+                case 'W': // Y+
+                    camera.eye[1]    += deltaMove;
+                    camera.center[1] += deltaMove;
+                    break;
+                case 'S': // Y-
+                    camera.eye[1]    -= deltaMove;
+                    camera.center[1] -= deltaMove;
+                    break;
+                case 'A': // X-
+                    camera.eye[0]    -= deltaMove;
+                    camera.center[0] -= deltaMove;
+                    break;
+                case 'D': // X+
+                    camera.eye[0]    += deltaMove;
+                    camera.center[0] += deltaMove;
+                    break;
+                default:
+                    break;
+            }
+
+            render();
+        };
+    }
 
 	/**
 	 * Run the rendering pipeline.
 	 */
-	function render() {
-		// Clear framebuffer and depth-/z-buffer.
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    function render() {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		setProjection();
+        setProjection();
 
-		calculateCameraOrbit();
+        // View-Matrix
+        mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
-		// Set view matrix depending on camera.
-		mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
+        // Szenenmatrix S (Yaw/Pitch)
+        var S = mat4.create();
+        mat4.identity(S);
+        mat4.rotateY(S, S, sceneRotation.yaw);
+        mat4.rotateX(S, S, sceneRotation.pitch);
 
-		// Loop over models.
-		for(var i = 0; i < models.length; i++) {
-			// Update modelview for model.
-			updateTransformations(models[i]);
+        for (var i = 0; i < models.length; i++) {
+            updateTransformations(models[i]);
 
-			// Set uniforms for model.
-			gl.uniform4fv(prog.colorUniform, models[i].color);
-			gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
-			gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
+            // mv = view * S * model
+            var tmp = mat4.create();
+            mat4.multiply(tmp, S, models[i].mMatrix);
+            mat4.multiply(models[i].mvMatrix, camera.vMatrix, tmp);
+
+            // Normalenmatrix
+            mat3.normalFromMat4(models[i].nMatrix, models[i].mvMatrix);
+
+            // Uniforms und Draw
+            gl.uniform4fv(prog.colorUniform, models[i].color);
+            gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
+            gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
 
             var isPlane = (models[i].name === "plane");
-            gl.uniform1f(prog.dispAmpUniform, isPlane ? 0.1 : 0.0);  // 0.1: deutlich flacher als vorher
-            gl.uniform1f(prog.dispFreqUniform, 1.0);                 // bei Bedarf z.B. 0.5 für längere Wellen
-
+            gl.uniform1f(prog.dispAmpUniform, isPlane ? 0.1 : 0.0);
+            gl.uniform1f(prog.dispFreqUniform, 1.0);
 
             draw(models[i]);
-		}
-	}
+        }
+    }
 
 	function calculateCameraOrbit() {
 		// Calculate x,z position/eye of camera orbiting the center.
@@ -378,32 +374,22 @@ var app = ( function() {
 	/**
 	 * Update model-view matrix for model.
 	 */
-	function updateTransformations(model) {
+    function updateTransformations(model) {
+        var mMatrix = model.mMatrix;
+        var mvMatrix = model.mvMatrix;
 
-		// Use shortcut variables.
-		var mMatrix = model.mMatrix;
-		var mvMatrix = model.mvMatrix;
-		
-		// Reset matrices to identity.
-		mat4.identity(mMatrix);
-		mat4.identity(mvMatrix);
+        mat4.identity(mMatrix);
+        mat4.identity(mvMatrix);
 
-		// Translate.
-		mat4.translate(mMatrix, mMatrix, model.translate);
-		// Rotate.
-		mat4.rotateX(mMatrix, mMatrix, model.rotate[0]);
-		mat4.rotateY(mMatrix, mMatrix, model.rotate[1]);
-		mat4.rotateZ(mMatrix, mMatrix, model.rotate[2]);
-		// Scale
-		mat4.scale(mMatrix, mMatrix, model.scale);
+        // Nur: model-Transform (translate, rotate, scale)
+        mat4.translate(mMatrix, mMatrix, model.translate);
+        mat4.rotateX(mMatrix, mMatrix, model.rotate[0]);
+        mat4.rotateY(mMatrix, mMatrix, model.rotate[1]);
+        mat4.rotateZ(mMatrix, mMatrix, model.rotate[2]);
+        mat4.scale(mMatrix, mMatrix, model.scale);
 
-		// Combine view and model matrix
-		// by matrix multiplication to mvMatrix.
-		mat4.multiply(mvMatrix, camera.vMatrix, mMatrix);
-
-		// Calculate normal matrix from model matrix.
-		mat3.normalFromMat4(model.nMatrix, mvMatrix);
-	}
+        // mvMatrix wird in render() berechnet: view * scene * model
+    }
 
 	function draw(model) {
 		// Setup position VBO.

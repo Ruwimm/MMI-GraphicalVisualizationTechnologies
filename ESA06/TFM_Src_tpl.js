@@ -408,7 +408,7 @@ var app = ( function() {
                     anim.speed /= 1.1;
                     break;
             }
-			// Render the scene again on any key pressed.
+
 			render();
 		};
 	}
