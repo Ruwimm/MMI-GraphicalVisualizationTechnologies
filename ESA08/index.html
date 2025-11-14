@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 8 - Lichter auf einer Kreisbahn mit Toon Shading</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
+    <script src="SLP_Src_tpl.js"></script>
+    <script type="x-shader/x-vertex" id="vertexshader">
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+
+        uniform mat4 uPMatrix;
+        uniform mat4 uMVMatrix;
+        uniform mat3 uNMatrix;
+        uniform vec4 uColor;
+
+        varying vec4 vColor;
+
+
+        void main(){
+            gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
+
+            vec3 tNormal = normalize(uNMatrix * aNormal);
+
+            float g = 0.5 * (tNormal.z + 1.0);
+            vColor = vec4(uColor.rgb * g, uColor.a);
+            vColor = uColor;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        precision mediump float;
+        varying vec4 vColor;
+        varying float displacement;
+
+        void main() {
+            gl_FragColor = vColor;
+        }
+    </script>
+
+</head>
+<body onload="app.start()">
+
+<h1 id="title">ESA 7 - Lichter auf einer Kreisbahn mit Toon Shading</h1>
+<canvas id="canvas" width="500" height="500"></canvas>
+
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            WASD: Links/Rechts und Oben/Unten <br>
+
+            Pfeiltasten: Drehen (4 Richtungen)
+
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Zwei Torus, zwei Kugeln, Boden mit displacement
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Kursmaterialien
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+
+</div>
+</body>
+<html>
