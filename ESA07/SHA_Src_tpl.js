@@ -1,15 +1,3 @@
-var anim = {
-    t: 0,           // Gesamtwinkel/Phase in Radiant
-    step: 0.1,
-    speed: 1,
-    auto: false,
-    rPath: 1,     // Bahnradius der Kugeln
-    yPath: 0.0,      // Höhe der Bahn
-    offset : [1, 0, 0],
-    lock : 0.5,
-    phase : 40,
-};
-
 var app = ( function() {
 
 	var gl;
@@ -50,6 +38,9 @@ var app = ( function() {
 		distance : 4,
 	};
 
+    var sceneRotation = { yaw: 0, pitch: 0 };
+
+
 	function start() {
 		init();
 		render();
@@ -58,7 +49,7 @@ var app = ( function() {
 	function init() {
 		initWebGL();
 		initShaderProgram();
-		initUniforms()
+		initUniforms();
 		initModels();
 		initEventHandler();
 		initPipline();
@@ -73,9 +64,9 @@ var app = ( function() {
 	}
 
 	/**
-	 * Init pipeline parameters that will not change again. 
-	 * If projection or viewport change, their setup must
-	 * be in render function.
+	 * Init pipeline parmters that will not change again.
+	 * If projection or viewport change,
+	 * thier setup must be in render function.
 	 */
 	function initPipline() {
 		gl.clearColor(.95, .95, .95, 1);
@@ -116,7 +107,6 @@ var app = ( function() {
 
 	/**
 	 * Create and init shader from source.
-	 * 
 	 * @parameter shaderType: openGL shader type.
 	 * @parameter SourceTagId: Id of HTML Tag with shader source.
 	 * @returns shader object.
@@ -140,105 +130,50 @@ var app = ( function() {
 		// Model-View-Matrix.
 		prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
 
-        prog.nMatrixUniform  = gl.getUniformLocation(prog, "uNMatrix");
+		// Normal Matrix.
+		prog.nMatrixUniform = gl.getUniformLocation(prog, "uNMatrix");
 
-        prog.colorUniform = gl.getUniformLocation(prog, "uColor");
+		// Color.
+		prog.colorUniform = gl.getUniformLocation(prog, "uColor");
 
+        prog.dispAmpUniform = gl.getUniformLocation(prog, "uDispAmp");
+        prog.dispFreqUniform = gl.getUniformLocation(prog, "uDispFreq");
 
     }
-
-    var sphereIdx = [];   // Indizes der 4 Kugeln
 
 	function initModels() {
-        // fillstyle
-        var fs = "fill";
+		// fillstyle
+		var fs = "fill";
+		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [1, 1, 1]);
 
 
-        createModel("torus", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [
-            1.2, 1.2, 1.2]);
+        createModel("sphere", fs, [1, 1, 1, 1], [1.1, 0.5, 1.5], [0, 0, 0], [0.5, 0.5, 0.5]);
 
-        createModel("plane", "wireframe", [1, 1, 1, 1], [0, -.8, 0], [
-            0, 0, 0], [1, 1, 1]);
 
-        createModel("sphere", fs, [0, 1, 1, 1], [1, -.3, -1],
-            [0, 0, 0], [.2, .2, .2]);
-        createModel("sphere", fs, [1, 0, 1, 1], [-1, -.3, -1],
-            [0, 0, 0], [.2, .2, .2]);
-        createModel("sphere", fs, [0, 0, 1, 1], [1, -.3, 1],
-            [0, 0, 0], [.2, .2, .2]);
-        createModel("sphere", fs, [1, 1, 0, 1], [-1, -.3, 1],
-            [0, 0, 0], [.2, .2, .2]);
+        createModel("sphere", fs, [1, 1, 1, 1], [-1, 0.3, 1], [0, 0, 0], [0.3, 0.3, 0.3]);
 
-        // Select one model that can be manipulated interactively by user.
-        interactiveModel = models[0];
 
-        sphereIdx = [2, 3, 4, 5];
+        createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2], [Math.PI/2, 0, 0], [1, 1, 1]);
 
-        for (var j = 0; j < sphereIdx.length; j++) {
-            var m = models[sphereIdx[j]];
-            m.orbit = {
-                phaseOffset: j * Math.PI / 2, // 0, 90°, 180°, 270°
-                r: anim.rPath,
-                y: anim.yPath
-            };
-        }
-        advanceAnimation(0);
 
-    }
-
-    var lastTime = 0;     // für Automatik
-
-    function advanceAnimation(deltaAngle) {
-        anim.t += deltaAngle;
-
-        var torus = models[0];
-        var cx = torus.translate[0];
-        var cy = torus.translate[1];
-        var cz = torus.translate[2];
-
-        var k = anim.lock;
-        var phi = anim.phase;
-
-        // Kugeln auf Kreisbahn im XZ-Plane mit Phasenversatz
-        for (var j = 0; j < sphereIdx.length; j++) {
-            var m = models[sphereIdx[j]];
-            var ang = k * anim.t + phi + m.orbit.phaseOffset;
-            m.translate[0] = cx + anim.offset[0] + m.orbit.r * Math.cos(ang);
-            m.translate[1] = cy + anim.offset[1] + m.orbit.y;
-            m.translate[2] = cz + anim.offset[2] + m.orbit.r * Math.sin(ang);
-        }
+        createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2], [Math.PI/2, 0, 0], [3, 3, 3]);
 
 
 
-        torus.rotate[0] = anim.t;
-        torus.rotate[1] = 0;
-        torus.rotate[2] = 0;
-    }
+		// Select one model that can be manipulated interactively by user.
+		interactiveModel = models[0];
+	}
 
-    function tick(timestamp) {
-        if (!anim.auto) return;
-        if (!lastTime) lastTime = timestamp;
-        var dt = (timestamp - lastTime) / 1000; // Sekunden
-        lastTime = timestamp;
-
-        var deltaAngle = dt * anim.speed * 2 * Math.PI; // U/s -> rad/s
-        advanceAnimation(deltaAngle);
-        render();
-        requestAnimationFrame(tick);
-    }
-
-
-
-    /**
+	/**
 	 * Create model object, fill it and push it in models array.
-	 * 
 	 * @parameter geometryname: string with name of geometry.
 	 * @parameter fillstyle: wireframe, fill, fillwireframe.
 	 */
 	function createModel(geometryname, fillstyle, color, translate, rotate, scale) {
 		var model = {};
 		model.fillstyle = fillstyle;
-        model.color = color;
+		model.color = color;
+        model.name = geometryname;
 		initDataAndBuffers(model, geometryname);
 		initTransformations(model, translate, rotate, scale);
 
@@ -260,12 +195,12 @@ var app = ( function() {
 		// Create and initialize Model-View-Matrix.
 		model.mvMatrix = mat4.create();
 
-        model.nMatrix = mat3.create();
+		// Create and initialize Normal Matrix.
+		model.nMatrix = mat3.create();
 	}
 
 	/**
 	 * Init data and buffers for model object.
-	 * 
 	 * @parameter model: a model object to augment with data.
 	 * @parameter geometryname: string with name of geometry.
 	 */
@@ -295,151 +230,118 @@ var app = ( function() {
 		// Setup lines index buffer object.
 		model.iboLines = gl.createBuffer();
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines, 
-			gl.STATIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines, gl.STATIC_DRAW);
 		model.iboLines.numberOfElements = model.indicesLines.length;
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
 		// Setup triangle index buffer object.
 		model.iboTris = gl.createBuffer();
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris, 
-			gl.STATIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris, gl.STATIC_DRAW);
 		model.iboTris.numberOfElements = model.indicesTris.length;
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 	}
 
-	function initEventHandler() {
-		// Rotation step.
-		var deltaRotate = Math.PI / 36;
-		var deltaTranslate = 0.05;
-        var deltaScale = 0.05;
+    function initEventHandler() {
+        var deltaRotate = Math.PI / 36; // 5°
+        var deltaMove = 0.1;
 
-		window.onkeydown = function(evt) {
-			var key = evt.which ? evt.which : evt.keyCode;
-			var c = String.fromCharCode(key);
-			// console.log(evt);
-			// Use shift key to change sign.
-			var sign = evt.shiftKey ? -1 : 1;
+        window.onkeydown = function(evt) {
+            var key = evt.which ? evt.which : evt.keyCode;
 
-			// Change projection of scene.
-			switch(c) {
-				case('O'):
-					camera.projectionType = "ortho";
-					camera.lrtb = 2;
-					break;
-				case('F'):
-					camera.projectionType = "frustum";
-					camera.lrtb = 1.2;
-					break;
-				case('P'):
-					camera.projectionType = "perspective";
-					break;
-			}
-			// Camera move and orbit.
-			switch(c) {
-				case('C'):
-					// Orbit camera.
-					camera.zAngle += sign * deltaRotate;
-					break;
-				case('H'):
-					// Move camera up and down.
-					camera.eye[1] += sign * deltaTranslate;
-					break;
-				case('D'):
-					// Camera distance to center.
-					camera.distance += sign * deltaTranslate;
-					break;
-				case('V'):
-					// Camera fovy in radian.
-					camera.fovy += sign * 5 * Math.PI / 180;
-					break;
-				// case('B'):
-				// 	// Camera near plane dimensions.
-				// 	camera.lrtb += sign * 0.1;
-				// 	break;
-			}
+            // Pfeiltasten: Szene drehen (Yaw/Pitch)
+            if (key === 37) { // Left
+                sceneRotation.yaw += deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 39) { // Right
+                sceneRotation.yaw -= deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 38) { // Up
+                sceneRotation.pitch += deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
+            if (key === 40) { // Down
+                sceneRotation.pitch -= deltaRotate;
+                evt.preventDefault();
+                render();
+                return;
+            }
 
-            // // Rotate interactive Model.
-            // switch(c) {
-            //     case('X'):
-            //         interactiveModel.rotate[0] += sign * deltaRotate;
-            //         break;
-            //     case('Y'):
-            //         interactiveModel.rotate[1] += sign * deltaRotate;
-            //         break;
-            //     case('Z'):
-            //         interactiveModel.rotate[2] += sign * deltaRotate;
-            //         break;
-            // }
-
-            // switch(c) {
-            //     case('S'):
-            //         interactiveModel.scale[0] *= 1 + sign * deltaScale;
-            //         interactiveModel.scale[1] *= 1 - sign * deltaScale;
-            //         interactiveModel.scale[2] *= 1 + sign * deltaScale;
-            //         break;
-            // }
-
+            // Buchstaben-Tasten (WASD): Kamera in XY bewegen
+            var c = String.fromCharCode(key);
             switch (c) {
-                case ('K'):
-                    if (anim.auto) {
-                        // Automatik aus
-                        anim.auto = false;
-                    } else {
-                        // Einzelschritt
-                        advanceAnimation(anim.step);
-                        render();
-                    }
+                case 'W': // Y+
+                    camera.eye[1]    += deltaMove;
+                    camera.center[1] += deltaMove;
                     break;
-                case ('R'):
-                    // Automatik umschalten
-                    anim.auto = !anim.auto;
-                    if (anim.auto) {
-                        lastTime = 0;
-                        requestAnimationFrame(tick);
-                    }
+                case 'S': // Y-
+                    camera.eye[1]    -= deltaMove;
+                    camera.center[1] -= deltaMove;
                     break;
-                //Geschwindigkeit ändern
-                case ('+'):
-                    anim.speed *= 1.1;
+                case 'A': // X-
+                    camera.eye[0]    -= deltaMove;
+                    camera.center[0] -= deltaMove;
                     break;
-                case ('-'):
-                    anim.speed /= 1.1;
+                case 'D': // X+
+                    camera.eye[0]    += deltaMove;
+                    camera.center[0] += deltaMove;
+                    break;
+                default:
                     break;
             }
 
-			render();
-		};
-	}
+            render();
+        };
+    }
 
 	/**
 	 * Run the rendering pipeline.
 	 */
-	function render() {
-		// Clear framebuffer and depth-/z-buffer.
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    function render() {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		setProjection();
+        setProjection();
 
-		calculateCameraOrbit();
+        // View-Matrix
+        mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
-		// Set view matrix depending on camera.
-		mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
+        // Szenenmatrix S (Yaw/Pitch)
+        var S = mat4.create();
+        mat4.identity(S);
+        mat4.rotateY(S, S, sceneRotation.yaw);
+        mat4.rotateX(S, S, sceneRotation.pitch);
 
-		// Loop over models.
-		for(var i = 0; i < models.length; i++) {
+        for (var i = 0; i < models.length; i++) {
+            updateTransformations(models[i]);
+
+            // mv = view * S * model
+            var tmp = mat4.create();
+            mat4.multiply(tmp, S, models[i].mMatrix);
+            mat4.multiply(models[i].mvMatrix, camera.vMatrix, tmp);
+
+            // Normalenmatrix
+            mat3.normalFromMat4(models[i].nMatrix, models[i].mvMatrix);
+
+            // Uniforms und Draw
             gl.uniform4fv(prog.colorUniform, models[i].color);
-
-            // Update modelview for model.
-			updateTransformations(models[i]);
-
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
-			
-			draw(models[i]);
-		}
-	}
+
+            var isPlane = (models[i].name === "plane");
+            gl.uniform1f(prog.dispAmpUniform, isPlane ? 0.1 : 0.0);
+            gl.uniform1f(prog.dispFreqUniform, 1.0);
+
+            draw(models[i]);
+        }
+    }
 
 	function calculateCameraOrbit() {
 		// Calculate x,z position/eye of camera orbiting the center.
@@ -462,8 +364,7 @@ var app = ( function() {
 				mat4.frustum(camera.pMatrix, -v/2, v/2, -v/2, v/2, 1, 10);
 				break;
 			case("perspective"):
-				mat4.perspective(camera.pMatrix, camera.fovy, 
-					camera.aspect, 1, 10);
+				mat4.perspective(camera.pMatrix, camera.fovy, camera.aspect, 1, 10);
 				break;
 		}
 		// Set projection uniform.
@@ -477,25 +378,23 @@ var app = ( function() {
         var mMatrix = model.mMatrix;
         var mvMatrix = model.mvMatrix;
 
-
         mat4.identity(mMatrix);
+        mat4.identity(mvMatrix);
+
+        // Nur: model-Transform (translate, rotate, scale)
         mat4.translate(mMatrix, mMatrix, model.translate);
         mat4.rotateX(mMatrix, mMatrix, model.rotate[0]);
         mat4.rotateY(mMatrix, mMatrix, model.rotate[1]);
         mat4.rotateZ(mMatrix, mMatrix, model.rotate[2]);
         mat4.scale(mMatrix, mMatrix, model.scale);
 
-        // View und Model kombinieren
-        mat4.multiply(mvMatrix, camera.vMatrix, mMatrix);
-
-        mat3.normalFromMat4(model.nMatrix, mvMatrix);
+        // mvMatrix wird in render() berechnet: view * scene * model
     }
 
 	function draw(model) {
 		// Setup position VBO.
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
-		gl.vertexAttribPointer(prog.positionAttrib, 3, gl.FLOAT, false, 
-			0, 0);
+		gl.vertexAttribPointer(prog.positionAttrib, 3, gl.FLOAT, false, 0, 0);
 
 		// Setup normal VBO.
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
@@ -506,24 +405,23 @@ var app = ( function() {
 		if(fill) {
 			gl.enableVertexAttribArray(prog.normalAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
-			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements, 
-				gl.UNSIGNED_SHORT, 0);
+			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
 
 		// Setup rendering lines.
 		var wireframe = (model.fillstyle.search(/wireframe/) != -1);
 		if(wireframe) {
+			gl.uniform4fv(prog.colorUniform, [0.,0.,0.,1.]);
 			gl.disableVertexAttribArray(prog.normalAttrib);
 			gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
-			gl.drawElements(gl.LINES, model.iboLines.numberOfElements, 
-				gl.UNSIGNED_SHORT, 0);
+			gl.drawElements(gl.LINES, model.iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
 	}
 
 	// App interface.
 	return {
 		start : start
-	}
+	};
 
 }());
