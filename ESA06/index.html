@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 6 - Objekte bewegen - fliegende Kugeln</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_sphere.js"></script>
+    <script src="GVT_Src_vertexData_torus.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
+    <script src="TFM_Src_tpl.js"></script>
+    <script type="x-shader/x-vertex" id="vertexshader">
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+
+        uniform mat4 uPMatrix;
+        uniform mat4 uMVMatrix;
+        uniform mat3 uNMatrix;
+        uniform vec4 uColor;
+
+        varying vec4 vColor;
+
+
+        void main(){
+            gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
+
+            vec3 tNormal = normalize(uNMatrix * aNormal);
+
+            float g = 0.5 * (tNormal.z + 1.0);
+            vColor = vec4(uColor.rgb * g, uColor.a);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        precision mediump float;
+        varying vec4 vColor;
+
+        void main() {
+            gl_FragColor = vColor;
+        }
+    </script>
+
+</head>
+<body onload="app.start()">
+
+<h1 id="title">ESA 6 - Objekte Bewegen - fliegende Kugeln</h1>
+<canvas id="canvas" width="500" height="500"></canvas>
+<!--<div id="SettingsButtons">-->
+<!--    <button id="btnToggleAnimation">Animation: an</button>-->
+<!--</div>-->
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            R: Animation starten/Stoppen <br>
+            K: Frame weiter <br>
+
+            C/Shift C: Kamera Orbit <br>
+
+            H/Shift H: Kamera Hoch/Runter <br>
+
+            D/Shift D: Kamera Distanz <br>
+
+            V/Shift V: Kamera FOV <br>
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Ein Torus und 4 Kugeln drehen sich ohne sich berühren
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Kursmaterialien
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+
+</div>
+</body>
+<html>
