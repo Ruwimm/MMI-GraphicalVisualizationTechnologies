@@ -41,69 +41,16 @@ var app = (function() {
     // Objekt with light sources characteristics in the scene.
     var illumination = {
         ambientLight : [ .5, .5, .5 ],
-        light : [
-            {isOn:true, position:[3.,1.,3.], color:[1.,1.,1.]},
-            {isOn:true, position:[-3.,1.,-3.], color:[1.,1.,1.]},
-        ]
+        light : [ {
+            isOn : true,
+            position : [ 3., 0., 5. ],
+            color : [ 1., 1., 1. ]
+        }, ]
     };
-
-    var animateLights = false;
-
-    var lightOrbit = {
-        radius: Math.hypot(illumination.light[0].position[0],
-            illumination.light[0].position[2]),
-        height: illumination.light[0].position[1], // Y bleibt konstant
-        speed: Math.PI / 4, // rad/s (hier: 45° pro Sekunde)
-        angle: 0
-    };
-
-    var useToon = false;           // Start mit Phong
-    var toonLevels = 4;            // Anzahl Helligkeitsbänder
-    var toonSpecThreshold = 0.5;   // Schwellwert fürs Highlight-Band
-    // var animateLights = false;   // läuft/pausiert
-    var stepOnce = false;        // einmaliger Schritt im Pausenmodus
-    var lastTime = 0;
-    var stepDt = 1/60;
-
-
-    function updateLights(dt) {
-        // Winkel
-        lightOrbit.angle += lightOrbit.speed * dt;
-        var a = lightOrbit.angle;
-        var r = lightOrbit.radius;
-        var y = lightOrbit.height;
-
-        // Licht 0
-        illumination.light[0].position[0] = r * Math.cos(a);
-        illumination.light[0].position[2] = r * Math.sin(a);
-        illumination.light[0].position[1] = y;
-
-        // Licht 1
-        illumination.light[1].position[0] = r * Math.cos(a + Math.PI);
-        illumination.light[1].position[2] = r * Math.sin(a + Math.PI);
-        illumination.light[1].position[1] = y;
-    }
-
-    function loop(time) {
-        // Zeitdifferenz in Sekunden
-        var dt = lastTime ? (time - lastTime) / 1000.0 : 0.0;
-        lastTime = time;
-
-        if (animateLights) {
-            updateLights(dt);
-        } else if (stepOnce) {
-            updateLights(stepDt); // ein Schritt
-            stepOnce = false;
-        }
-        render();
-        requestAnimationFrame(loop);
-    }
-
 
     function start() {
         init();
-        // render();
-        requestAnimationFrame(loop);
+        render();
     }
 
     function init() {
@@ -166,7 +113,7 @@ var app = (function() {
 
     /**
      * Create and init shader from source.
-     * 
+     *
      * @parameter shaderType: openGL shader type.
      * @parameter SourceTagId: Id of HTML Tag with shader source.
      * @returns shader object.
@@ -198,7 +145,7 @@ var app = (function() {
 
         // Light.
         prog.ambientLightUniform = gl.getUniformLocation(prog,
-                "ambientLight");
+            "ambientLight");
         // Array for light sources uniforms.
         prog.lightUniform = [];
         // Loop over light sources.
@@ -218,9 +165,48 @@ var app = (function() {
         prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
         prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
 
-        prog.useToonUniform = gl.getUniformLocation(prog, "useToon");
-        prog.toonLevelsUniform = gl.getUniformLocation(prog, "uToonLevels");
-        prog.toonSpecThresholdUniform = gl.getUniformLocation(prog, "uSpecThreshold");
+        // Texture.
+        prog.textureUniform = gl.getUniformLocation(prog, "uTexture");
+    }
+
+    /**
+     * Load the texture image file.
+     */
+    function initTexture(model, filename) {
+        var texture = gl.createTexture();
+        model.texture = texture;
+        texture.loaded = false;
+        texture.image = new Image();
+        texture.image.onload = function() {
+            onloadTextureImage(texture);
+        };
+        texture.image.src = filename;
+    }
+
+    function onloadTextureImage(texture) {
+
+        texture.loaded = true;
+
+        // Use texture object.
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Assigen image data.
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+            texture.image);
+
+        // Set texture parameter.
+        // Min Filter: NEAREST,LINEAR, .. , LINEAR_MIPMAP_LINEAR,
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        // Mag Filter: NEAREST,LINEAR
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        // Use mip-Mapping.
+        gl.generateMipmap(gl.TEXTURE_2D);
+
+        // Release texture object.
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // Update the scene.
+        render();
     }
 
     /**
@@ -243,24 +229,30 @@ var app = (function() {
         // fillstyle
         var fs = "fill";
 
-        // Create some default material.
+        // Create some materials.
         var mDefault = createPhongMaterial();
+        var mRed = createPhongMaterial({
+            kd : [ 1., 0., 0. ]
+        });
+        var mGreen = createPhongMaterial({
+            kd : [ 0., 1., 0. ]
+        });
+        var mBlue = createPhongMaterial({
+            kd : [ 0., 0., 1. ]
+        });
+        var mGrey = createPhongMaterial({
+            ka : [ 1., 1., 1. ],
+            kd : [ .5, .5, .5 ],
+            ks : [ 0., 0., 0. ]
+        });
+        var mWhite = createPhongMaterial({
+            ka : [ 0.8, 0.8, 0.8 ],
+            kd : [ 1, 1, 1 ],
+            ks : [ 0, 0, 0 ]
+        });
 
-        var mDefault = createPhongMaterial();
-        var mRed = createPhongMaterial({kd:[1.,0.,0.]});
-        var mGreen = createPhongMaterial({kd:[0.,1.,0.]});
-        var mBlue = createPhongMaterial({kd:[0.,0.,1.]});
-        var mWhite = createPhongMaterial({ka:[1.,1.,1.], kd:[.5,.5,.5],
-            ks:[0.,0.,0.]});
-
-        createModel("torus", fs, [ 1, 1, 1, 1 ], [ 0, .75, 0 ],
-                [ 0, 0, 0, 0 ], [ 1, 1, 1, 1 ], mRed);
-        createModel("sphere", fs, [ 1, 1, 1, 1 ], [ -1.25, .5, 0 ], [ 0, 0,
-                0, 0 ], [ .5, .5, .5 ], mGreen);
-        createModel("sphere", fs, [ 1, 1, 1, 1 ], [ 1.25, .5, 0 ], [ 0, 0,
-                0, 0 ], [ .5, .5, .5 ], mBlue);
         createModel("plane", fs, [ 1, 1, 1, 1 ], [ 0, 0, 0, 0 ], [ 0, 0, 0,
-                0 ], [ 1, 1, 1, 1 ], mWhite);
+            0 ], [ 1, 1, 1, 1 ], mGrey, "textures/x.png");
 
         // Select one model that can be manipulated interactively by user.
         interactiveModel = models[0];
@@ -268,17 +260,21 @@ var app = (function() {
 
     /**
      * Create model object, fill it and push it in models array.
-     * 
+     *
      * @parameter geometryname: string with name of geometry.
      * @parameter fillstyle: wireframe, fill, fillwireframe.
      */
     function createModel(geometryname, fillstyle, color, translate, rotate,
-            scale, material) {
+                         scale, material, textureFilename) {
         var model = {};
         model.fillstyle = fillstyle;
         model.color = color;
         initDataAndBuffers(model, geometryname);
         initTransformations(model, translate, rotate, scale);
+
+        if (textureFilename) {
+            initTexture(model, textureFilename);
+        }
         model.material = material;
 
         models.push(model);
@@ -305,7 +301,7 @@ var app = (function() {
 
     /**
      * Init data and buffers for model object.
-     * 
+     *
      * @parameter model: a model object to augment with data.
      * @parameter geometryname: string with name of geometry.
      */
@@ -332,11 +328,20 @@ var app = (function() {
         prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
         gl.enableVertexAttribArray(prog.normalAttrib);
 
+        // Setup texture coordinate vertex buffer object.
+        model.vboTextureCoord = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.bufferData(gl.ARRAY_BUFFER, model.textureCoord, gl.STATIC_DRAW);
+        // Bind buffer to attribute variable.
+        prog.textureCoordAttrib = gl
+            .getAttribLocation(prog, 'aTextureCoord');
+        gl.enableVertexAttribArray(prog.textureCoordAttrib);
+
         // Setup lines index buffer object.
         model.iboLines = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines,
-                gl.STATIC_DRAW);
+            gl.STATIC_DRAW);
         model.iboLines.numberOfElements = model.indicesLines.length;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -344,7 +349,7 @@ var app = (function() {
         model.iboTris = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris,
-                gl.STATIC_DRAW);
+            gl.STATIC_DRAW);
         model.iboTris.numberOfElements = model.indicesTris.length;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
@@ -358,59 +363,64 @@ var app = (function() {
         window.onkeydown = function(evt) {
             var key = evt.which ? evt.which : evt.keyCode;
             var c = String.fromCharCode(key);
-            var sign = evt.shiftKey ? -1 : 1;
             // console.log(evt);
             // Use shift key to change sign.
             var sign = evt.shiftKey ? -1 : 1;
-
+            // Rotate interactiveModel.
+            switch (c) {
+                case ('X'):
+                    interactiveModel.rotate[0] += sign * deltaRotate;
+                    break;
+                case ('Y'):
+                    interactiveModel.rotate[1] += sign * deltaRotate;
+                    break;
+                case ('Z'):
+                    interactiveModel.rotate[2] += sign * deltaRotate;
+                    break;
+            }
+            // Scale/squeese interactiveModel.
+            switch (c) {
+                case ('S'):
+                    interactiveModel.scale[0] *= 1 + sign * deltaScale;
+                    interactiveModel.scale[1] *= 1 - sign * deltaScale;
+                    interactiveModel.scale[2] *= 1 + sign * deltaScale;
+                    break;
+            }
             // Change projection of scene.
             switch (c) {
-            case ('O'):
-                camera.projectionType = "ortho";
-                camera.lrtb = 2;
-                break;
-            case ('F'):
-                camera.projectionType = "frustum";
-                camera.lrtb = 1.2;
-                break;
-            case ('P'):
-                camera.projectionType = "perspective";
-                break;
+                case ('O'):
+                    camera.projectionType = "ortho";
+                    camera.lrtb = 2;
+                    break;
+                case ('F'):
+                    camera.projectionType = "frustum";
+                    camera.lrtb = 1.2;
+                    break;
+                case ('P'):
+                    camera.projectionType = "perspective";
+                    break;
             }
             // Camera move and orbit.
             switch (c) {
-            case ('C'):
-                // Orbit camera.
-                camera.zAngle += sign * deltaRotate;
-                break;
-            case ('H'):
-                // Move camera up and down.
-                camera.eye[1] += sign * deltaTranslate;
-                break;
-            case ('D'):
-                // Camera distance to center.
-                camera.distance += sign * deltaTranslate;
-                break;
-            case ('V'):
-                // Camera fovy in radian.
-                camera.fovy += sign * 5 * Math.PI / 180;
-                break;
-            case ('B'):
-                // Camera near plane dimensions.
-                camera.lrtb += sign * 0.1;
-                break;
-            }
-
-            switch (c) {
-                case ('R'):
-                    animateLights = !animateLights;
+                case ('C'):
+                    // Orbit camera.
+                    camera.zAngle += sign * deltaRotate;
                     break;
-                case ('T'):
-                    useToon = !useToon;
+                case ('H'):
+                    // Move camera up and down.
+                    camera.eye[1] += sign * deltaTranslate;
                     break;
-                case ('L'):
-                    // Nur im Pausenmodus einen Schritt machen
-                    if (!animateLights) stepOnce = true;
+                case ('D'):
+                    // Camera distance to center.
+                    camera.distance += sign * deltaTranslate;
+                    break;
+                case ('V'):
+                    // Camera fovy in radian.
+                    camera.fovy += sign * 5 * Math.PI / 180;
+                    break;
+                case ('B'):
+                    // Camera near plane dimensions.
+                    camera.lrtb += sign * 0.1;
                     break;
             }
             // Render the scene again on any key pressed.
@@ -432,14 +442,13 @@ var app = (function() {
         // Set view matrix depending on camera.
         mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
-        // NEW
         // Set light uniforms.
         gl.uniform3fv(prog.ambientLightUniform, illumination.ambientLight);
         // Loop over light sources.
         for (var j = 0; j < illumination.light.length; j++) {
             // bool is transferred as integer.
             gl.uniform1i(prog.lightUniform[j].isOn,
-                    illumination.light[j].isOn);
+                illumination.light[j].isOn);
             // Tranform light postion in eye coordinates.
             // Copy current light position into a new array.
             var lightPos = [].concat(illumination.light[j].position);
@@ -450,11 +459,16 @@ var app = (function() {
             lightPos.pop();
             gl.uniform3fv(prog.lightUniform[j].position, lightPos);
             gl.uniform3fv(prog.lightUniform[j].color,
-                    illumination.light[j].color);
+                illumination.light[j].color);
         }
 
         // Loop over models.
         for (var i = 0; i < models.length; i++) {
+
+            if (!models[i].texture.loaded) {
+                continue;
+            }
+
             // Update modelview for model.
             updateTransformations(models[i]);
 
@@ -462,21 +476,20 @@ var app = (function() {
             //
             // Transformation matrices.
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false,
-                    models[i].mvMatrix);
+                models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false,
-                    models[i].nMatrix);
+                models[i].nMatrix);
             // Color (not used with lights).
             gl.uniform4fv(prog.colorUniform, models[i].color);
-            // NEW
             // Material.
             gl.uniform3fv(prog.materialKaUniform, models[i].material.ka);
             gl.uniform3fv(prog.materialKdUniform, models[i].material.kd);
             gl.uniform3fv(prog.materialKsUniform, models[i].material.ks);
             gl.uniform1f(prog.materialKeUniform, models[i].material.ke);
-
-            gl.uniform1i(prog.useToonUniform, useToon ? 1 : 0);
-            gl.uniform1i(prog.toonLevelsUniform, toonLevels);
-            gl.uniform1f(prog.toonSpecThresholdUniform, toonSpecThreshold);
+            // Texture.
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, models[i].texture);
+            gl.uniform1i(prog.textureUniform, 0);
 
             draw(models[i]);
         }
@@ -494,19 +507,20 @@ var app = (function() {
     function setProjection() {
         // Set projection Matrix.
         switch (camera.projectionType) {
-        case ("ortho"):
-            var v = camera.lrtb;
-            mat4.ortho(camera.pMatrix, -v, v, -v, v, -10, 100);
-            break;
-        case ("frustum"):
-            var v = camera.lrtb;
-            mat4.frustum(camera.pMatrix, -v / 2, v / 2, -v / 2, v / 2,
-                    1, 10);
-            break;
-        case ("perspective"):
-            mat4.perspective(camera.pMatrix, camera.fovy, camera.aspect, 1,
+            case ("ortho"):
+                var v = camera.lrtb;
+                mat4.ortho(camera.pMatrix, -v, v, -v, v, -10, 100);
+                break;
+            case ("frustum"):
+                var v = camera.lrtb;
+                mat4
+                    .frustum(camera.pMatrix, -v / 2, v / 2, -v / 2, v / 2,
+                        1, 10);
+                break;
+            case ("perspective"):
+                mat4.perspective(camera.pMatrix, camera.fovy, camera.aspect, 1,
                     10);
-            break;
+                break;
         }
         // Set projection uniform.
         gl.uniformMatrix4fv(prog.pMatrixUniform, false, camera.pMatrix);
@@ -545,20 +559,28 @@ var app = (function() {
     function draw(model) {
         // Setup position VBO.
         gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
-        gl.vertexAttribPointer(prog.positionAttrib, 3, gl.FLOAT,
-                    false, 0, 0);
+        gl
+            .vertexAttribPointer(prog.positionAttrib, 3, gl.FLOAT,
+                false, 0, 0);
 
         // Setup normal VBO.
         gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
         gl.vertexAttribPointer(prog.normalAttrib, 3, gl.FLOAT, false, 0, 0);
 
+        // Setup texture VBO.
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.vertexAttribPointer(prog.textureCoordAttrib, 2, gl.FLOAT, false,
+            0, 0);
+
         // Setup rendering tris.
         var fill = (model.fillstyle.search(/fill/) != -1);
         if (fill) {
             gl.enableVertexAttribArray(prog.normalAttrib);
+            gl.enableVertexAttribArray(prog.textureCoordAttrib);
+
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
             gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements,
-                    gl.UNSIGNED_SHORT, 0);
+                gl.UNSIGNED_SHORT, 0);
         }
 
         // Setup rendering lines.
@@ -566,10 +588,12 @@ var app = (function() {
         if (wireframe) {
             gl.uniform4fv(prog.colorUniform, [ 0., 0., 0., 1. ]);
             gl.disableVertexAttribArray(prog.normalAttrib);
+            gl.disableVertexAttribArray(prog.textureCoordAttrib);
+
             gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
             gl.drawElements(gl.LINES, model.iboLines.numberOfElements,
-                    gl.UNSIGNED_SHORT, 0);
+                gl.UNSIGNED_SHORT, 0);
         }
     }
 
