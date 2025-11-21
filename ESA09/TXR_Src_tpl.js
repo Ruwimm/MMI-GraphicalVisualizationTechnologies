@@ -1,21 +1,3 @@
-var illumination = {
-    ambientLight: [0.5, 0.5, 0.5],
-    light: [
-        {isOn: true, position: [3.0, 0.0, 5.0], color: [1.0, 1.0, 1.0]}
-    ]
-};
-
-function createPhongMaterial(m){
-    m = m || {};
-    return {
-        ka: m.ka || [0.3, 0.3, 0.3],
-        kd: m.kd || [0.8, 0.8, 0.8],
-        ks: m.ks || [0.2, 0.2, 0.2],
-        ke: m.ke || 20.0
-    };
-}
-var defaultMat = createPhongMaterial();
-
 var app = (function() {
 
 	var gl;
@@ -55,6 +37,16 @@ var app = (function() {
 		// Distance in XZ-Plane from center when orbiting.
 		distance : 4,
 	};
+
+    // Objekt with light sources characteristics in the scene.
+    var illumination = {
+        ambientLight : [ .5, .5, .5 ],
+        light : [ {
+            isOn : true,
+            position : [ 3., 3., 5. ],
+            color : [ 1., 1., 1. ]
+        }, ]
+    };
 
     var sceneRotation = { yaw: 0, pitch: 0 };
 
@@ -141,46 +133,142 @@ var app = (function() {
 		return shader;
 	}
 
-	function initUniforms() {
-		// Projection Matrix.
-		prog.pMatrixUniform = gl.getUniformLocation(prog, "uPMatrix");
+    function initUniforms() {
+        // Projection Matrix.
+        prog.pMatrixUniform = gl.getUniformLocation(prog, "uPMatrix");
 
-		// Model-View-Matrix.
-		prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
+        // Model-View-Matrix.
+        prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
 
-		// Normal Matrix.
-		prog.nMatrixUniform = gl.getUniformLocation(prog, "uNMatrix");
+        // Normal Matrix.
+        prog.nMatrixUniform = gl.getUniformLocation(prog, "uNMatrix");
 
-		// Color.
-		prog.colorUniform = gl.getUniformLocation(prog, "uColor");
+        // Color.
+        prog.colorUniform = gl.getUniformLocation(prog, "uColor");
 
-
-        prog.ambientLightUniform = gl.getUniformLocation(prog, "ambientLight");
+        // Light.
+        prog.ambientLightUniform = gl.getUniformLocation(prog,
+            "ambientLight");
+        // Array for light sources uniforms.
         prog.lightUniform = [];
-        for (var j=0; j<illumination.light.length; j++) {
-            var nb = "light["+j+"]";
+        // Loop over light sources.
+        for (var j = 0; j < illumination.light.length; j++) {
+            var lightNb = "light[" + j + "]";
+            // Store one object for every light source.
             var l = {};
-            l.isOn     = gl.getUniformLocation(prog, nb+".isOn");
-            l.position = gl.getUniformLocation(prog, nb+".position");
-            l.color    = gl.getUniformLocation(prog, nb+".color");
+            l.isOn = gl.getUniformLocation(prog, lightNb + ".isOn");
+            l.position = gl.getUniformLocation(prog, lightNb + ".position");
+            l.color = gl.getUniformLocation(prog, lightNb + ".color");
             prog.lightUniform[j] = l;
         }
+
+        // Material.
         prog.materialKaUniform = gl.getUniformLocation(prog, "material.ka");
         prog.materialKdUniform = gl.getUniformLocation(prog, "material.kd");
         prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
         prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
 
+        // Texture.
+        prog.textureUniform = gl.getUniformLocation(prog, "uTexture");
+    }
+
+    /**
+     * Load the texture image file.
+     */
+    function initTexture(model, filename) {
+        var texture = gl.createTexture();
+        model.texture = texture;
+        texture.loaded = false;
+        texture.image = new Image();
+        texture.image.onload = function() {
+            onloadTextureImage(texture);
+        };
+        texture.image.src = filename;
+    }
+
+    function onloadTextureImage(texture) {
+
+        texture.loaded = true;
+
+        // Use texture object.
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Assigen image data.
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+            texture.image);
+
+        const w = texture.image.width, h = texture.image.height;
+        const isPOT = (w & (w - 1)) === 0 && (h & (h - 1)) === 0;
+
+        if (isPOT) {
+            // POT: Mipmaps erlaubt
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // Wrap kann REPEAT sein
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        } else {
+            // NPOT: keine Mipmaps, Clamp-To-Edge und LINEAR/NEAREST
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+
+        // Release texture object.
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // Update the scene.
+        render();
+    }
+
+    function createPhongMaterial(material) {
+        material = material || {};
+        // Set some default values,
+        // if not defined in material paramter.
+        material.ka = material.ka || [ 0.3, 0.3, 0.3 ];
+        material.kd = material.kd || [ 0.6, 0.6, 0.6 ];
+        material.ks = material.ks || [ 0.8, 0.8, 0.8 ];
+        material.ke = material.ke || 10.;
+
+        return material;
     }
 
 	function initModels() {
 		// fillstyle
 		var fs = "fill";
-		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [1, 1, 1]);
 
-        createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2], [Math.PI/2, 0, 0], [1, 1, 1]);
+        // Create some materials.
+        var mDefault = createPhongMaterial();
+        var mRed = createPhongMaterial({
+            kd : [ 1., 0., 0. ]
+        });
+        var mGreen = createPhongMaterial({
+            kd : [ 0., 1., 0. ]
+        });
+        var mBlue = createPhongMaterial({
+            kd : [ 0., 0., 1. ]
+        });
+        var mGrey = createPhongMaterial({
+            ka : [ 1., 1., 1. ],
+            kd : [ .5, .5, .5 ],
+            ks : [ 0., 0., 0. ]
+        });
+        var mWhite = createPhongMaterial({
+            ka : [ 0.8, 0.8, 0.8 ],
+            kd : [ 1, 1, 1 ],
+            ks : [ 0, 0, 0 ]
+        });
+
+		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1],
+            mWhite,"textures/Floor.jpg");
 
 
-        createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2], [Math.PI/2, 0, 0], [3, 3, 3]);
+        createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2,0], [Math.PI/2, 0, 0,0], [1, 1, 1,1],mGreen,);
+
+
+        createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2, 0], [Math.PI/2, 0, 0, 0], [3, 3, 3, 3], mRed);
 
 
 		// Select one model that can be manipulated interactively by user.
@@ -192,16 +280,21 @@ var app = (function() {
 	 * @parameter geometryname: string with name of geometry.
 	 * @parameter fillstyle: wireframe, fill, fillwireframe.
 	 */
-	function createModel(geometryname, fillstyle, color, translate, rotate, scale) {
+    function createModel(geometryname, fillstyle, color, translate, rotate,
+                         scale, material, textureFilename) {
         var model = {};
         model.fillstyle = fillstyle;
         model.color = color;
-        model.name = geometryname;
         initDataAndBuffers(model, geometryname);
         initTransformations(model, translate, rotate, scale);
-        model.material = defaultMat;
+
+        if (textureFilename) {
+            initTexture(model, textureFilename);
+        }
+        model.material = material;
+
         models.push(model);
-	}
+    }
 
 	/**
 	 * Set scale, rotation and transformation for model.
@@ -227,43 +320,54 @@ var app = (function() {
 	 * @parameter model: a model object to augment with data.
 	 * @parameter geometryname: string with name of geometry.
 	 */
-	function initDataAndBuffers(model, geometryname) {
-		// Provide model object with vertex data arrays.
-		// Fill data arrays for Vertex-Positions, Normals, Index data:
-		// vertices, normals, indicesLines, indicesTris;
-		// Pointer this refers to the window.
-		this[geometryname]['createVertexData'].apply(model);
+    function initDataAndBuffers(model, geometryname) {
+        // Provide model object with vertex data arrays.
+        // Fill data arrays for Vertex-Positions, Normals, Index data:
+        // vertices, normals, indicesLines, indicesTris;
+        // Pointer this refers to the window.
+        this[geometryname]['createVertexData'].apply(model);
 
-		// Setup position vertex buffer object.
-		model.vboPos = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
-		gl.bufferData(gl.ARRAY_BUFFER, model.vertices, gl.STATIC_DRAW);
-		// Bind vertex buffer to attribute variable.
-		prog.positionAttrib = gl.getAttribLocation(prog, 'aPosition');
-		gl.enableVertexAttribArray(prog.positionAttrib);
+        // Setup position vertex buffer object.
+        model.vboPos = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
+        gl.bufferData(gl.ARRAY_BUFFER, model.vertices, gl.STATIC_DRAW);
+        // Bind vertex buffer to attribute variable.
+        prog.positionAttrib = gl.getAttribLocation(prog, 'aPosition');
+        gl.enableVertexAttribArray(prog.positionAttrib);
 
-		// Setup normal vertex buffer object.
-		model.vboNormal = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
-		gl.bufferData(gl.ARRAY_BUFFER, model.normals, gl.STATIC_DRAW);
-		// Bind buffer to attribute variable.
-		prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
-		gl.enableVertexAttribArray(prog.normalAttrib);
+        // Setup normal vertex buffer object.
+        model.vboNormal = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
+        gl.bufferData(gl.ARRAY_BUFFER, model.normals, gl.STATIC_DRAW);
+        // Bind buffer to attribute variable.
+        prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
+        gl.enableVertexAttribArray(prog.normalAttrib);
 
-		// Setup lines index buffer object.
-		model.iboLines = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines, gl.STATIC_DRAW);
-		model.iboLines.numberOfElements = model.indicesLines.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        // Setup texture coordinate vertex buffer object.
+        model.vboTextureCoord = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.bufferData(gl.ARRAY_BUFFER, model.textureCoord, gl.STATIC_DRAW);
+        // Bind buffer to attribute variable.
+        prog.textureCoordAttrib = gl
+            .getAttribLocation(prog, 'aTextureCoord');
+        gl.enableVertexAttribArray(prog.textureCoordAttrib);
 
-		// Setup triangle index buffer object.
-		model.iboTris = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris, gl.STATIC_DRAW);
-		model.iboTris.numberOfElements = model.indicesTris.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-	}
+        // Setup lines index buffer object.
+        model.iboLines = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines,
+            gl.STATIC_DRAW);
+        model.iboLines.numberOfElements = model.indicesLines.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // Setup triangle index buffer object.
+        model.iboTris = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris,
+            gl.STATIC_DRAW);
+        model.iboTris.numberOfElements = model.indicesTris.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    }
 
     function initEventHandler() {
         var deltaRotate = Math.PI / 36; // 5°
@@ -343,18 +447,30 @@ var app = (function() {
         mat4.rotateX(S, S, sceneRotation.pitch);
 
         gl.uniform3fv(prog.ambientLightUniform, illumination.ambientLight);
-        for (var j=0; j<illumination.light.length; j++) {
-            gl.uniform1i(prog.lightUniform[j].isOn, illumination.light[j].isOn);
-            var lp = illumination.light[j].position.slice();
-            lp.push(1.0);
-            vec4.transformMat4(lp, lp, camera.vMatrix); // in Augenraum
-            lp.pop();
-            gl.uniform3fv(prog.lightUniform[j].position, lp);
-            gl.uniform3fv(prog.lightUniform[j].color, illumination.light[j].color);
+        for (var j = 0; j < illumination.light.length; j++) {
+            // bool is transferred as integer.
+            gl.uniform1i(prog.lightUniform[j].isOn,
+                illumination.light[j].isOn);
+            // Tranform light postion in eye coordinates.
+            // Copy current light position into a new array.
+            var lightPos = [].concat(illumination.light[j].position);
+            // Add homogenious coordinate for transformation.
+            lightPos.push(1.0);
+            vec4.transformMat4(lightPos, lightPos, camera.vMatrix);
+            // Remove homogenious coordinate.
+            lightPos.pop();
+            gl.uniform3fv(prog.lightUniform[j].position, lightPos);
+            gl.uniform3fv(prog.lightUniform[j].color,
+                illumination.light[j].color);
         }
 
 
         for (var i = 0; i < models.length; i++) {
+
+            if (models[i].texture && !models[i].texture.loaded) {
+                continue;
+            }
+
             updateTransformations(models[i]);
 
             // mv = view * S * model
@@ -376,18 +492,23 @@ var app = (function() {
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
 
+            // Texture.
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, models[i].texture);
+            gl.uniform1i(prog.textureUniform, 0);
+
             draw(models[i]);
         }
     }
 
-	function calculateCameraOrbit() {
-		// Calculate x,z position/eye of camera orbiting the center.
-		var x = 0, z = 2;
-		camera.eye[x] = camera.center[x];
-		camera.eye[z] = camera.center[z];
-		camera.eye[x] += camera.distance * Math.sin(camera.zAngle);
-		camera.eye[z] += camera.distance * Math.cos(camera.zAngle);
-	}
+	// function calculateCameraOrbit() {
+	// 	// Calculate x,z position/eye of camera orbiting the center.
+	// 	var x = 0, z = 2;
+	// 	camera.eye[x] = camera.center[x];
+	// 	camera.eye[z] = camera.center[z];
+	// 	camera.eye[x] += camera.distance * Math.sin(camera.zAngle);
+	// 	camera.eye[z] += camera.distance * Math.cos(camera.zAngle);
+	// }
 
 	function setProjection() {
 		// Set projection Matrix.
@@ -437,10 +558,17 @@ var app = (function() {
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
 		gl.vertexAttribPointer(prog.normalAttrib, 3, gl.FLOAT, false, 0, 0);
 
-		// Setup rendering tris.
+        // Setup texture VBO.
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.vertexAttribPointer(prog.textureCoordAttrib, 2, gl.FLOAT, false,
+            0, 0);
+
+
+        // Setup rendering tris.
 		var fill = (model.fillstyle.search(/fill/) != -1);
 		if(fill) {
 			gl.enableVertexAttribArray(prog.normalAttrib);
+            gl.enableVertexAttribArray(prog.textureCoordAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
 			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
@@ -450,11 +578,14 @@ var app = (function() {
 		if(wireframe) {
 			gl.uniform4fv(prog.colorUniform, [0.,0.,0.,1.]);
 			gl.disableVertexAttribArray(prog.normalAttrib);
+            gl.disableVertexAttribArray(prog.textureCoordAttrib);
+
 			gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
 			gl.drawElements(gl.LINES, model.iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
-	}
+
+    }
 
 	// App interface.
 	return {

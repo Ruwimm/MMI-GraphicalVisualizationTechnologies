@@ -14,6 +14,7 @@
     <script type="x-shader/x-vertex" id="vertexshader">
         attribute vec3 aPosition;
         attribute vec3 aNormal;
+        attribute vec2 aTextureCoord;
 
         uniform mat4 uPMatrix;
         uniform mat4 uMVMatrix;
@@ -23,6 +24,9 @@
         varying vec3 vNormal;
         varying vec4 vPosition;
         varying vec4 vBaseColor;
+        varying vec2 vTextureCoord;
+
+
 
         void main(){
             vec4 tPosition = uMVMatrix * vec4(aPosition, 1.0);
@@ -31,6 +35,7 @@
             vNormal = normalize(uNMatrix * aNormal);
             vPosition = tPosition;
             vBaseColor = uColor;
+            vTextureCoord = aTextureCoord;
         }
     </script>
     <script type="x-shader/x-fragment" id="fragmentshader">
@@ -39,6 +44,10 @@
         varying vec3 vNormal;
         varying vec4 vPosition;
         varying vec4 vBaseColor;
+        varying vec2 vTextureCoord;
+
+        uniform sampler2D uTexture;
+        //uniform bool uUseTexture;
 
         // Material
         struct PhongMaterial {
@@ -83,10 +92,29 @@
         }
 
         void main() {
-            vec3 v = normalize(-vPosition.xyz);
-            vec3 n = normalize(vNormal);
-            vec4 lighting = vec4(phong(vPosition.xyz, n, v), 1.0);
-            gl_FragColor = vBaseColor * lighting;
+            vec3 V = normalize(-vPosition.xyz);
+            vec3 N = normalize(vNormal);
+
+            vec3 AD   = material.ka * ambientLight; // Ambient
+            vec3 diff = vec3(0.0);
+            vec3 spec = vec3(0.0);
+
+            for (int j = 0; j < MAX_LIGHT_SOURCES; ++j) {
+                if (light[j].isOn) {
+                    vec3 Lc = light[j].color;
+                    vec3 S  = normalize(light[j].position - vPosition.xyz);
+                    float sn = max(dot(S, N), 0.0);
+                    diff += material.kd * Lc * sn;
+
+                    vec3 R  = reflect(-S, N);
+                    float rv = max(dot(R, V), 0.0);
+                    spec += material.ks * Lc * pow(rv, material.ke);
+                }
+            }
+
+            vec4 tex = texture2D(uTexture, vTextureCoord);
+            vec3 rgb = tex.rgb * (AD + diff) + spec;
+            gl_FragColor = vec4(rgb, tex.a);
         }
     </script>
 
