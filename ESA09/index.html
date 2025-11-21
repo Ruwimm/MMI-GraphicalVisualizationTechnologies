@@ -7,8 +7,6 @@
 
     <script src="gl-matrix.js"></script>
     <script src="GVT_Src_vertexData_plane.js"></script>
-    <script src="GVT_Src_vertexData_sphere.js"></script>
-    <script src="GVT_Src_vertexData_sphere.js"></script>
     <script src="GVT_Src_vertexData_torus.js"></script>
     <script src="TXR_Src_tpl.js"></script>
     <script type="x-shader/x-vertex" id="vertexshader">
@@ -47,7 +45,6 @@
         varying vec2 vTextureCoord;
 
         uniform sampler2D uTexture;
-        //uniform bool uUseTexture;
 
         // Material
         struct PhongMaterial {
@@ -137,11 +134,13 @@
         </li>
         <li>
             <b>Darstellung:</b>
-            Zwei Torus, zwei Kugeln, Boden mit displacement
+            Zwei Torus (Bildtextur und Prozedural) auf einer Plane.
         </li>
         <li>
             <b>Quelle:</b>
-            Kursmaterialien
+            Boden Textur: https://www.poliigon.com/de/textures/marble
+            Torus 1 Textur:
+            Torus 2: Prozedural generiert.
         </li>
     </ul>
 </div>
