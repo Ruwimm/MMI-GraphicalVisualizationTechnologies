@@ -1,9 +1,8 @@
-// BEGIN exercise plane
-var plane = ( function() {
+var sphere = ( function() {
 
 	function createVertexData() {
-		var n = 100;
-		var m = 100;
+		var n = 32;
+		var m = 32;
 
 		// Positions.
 		this.vertices = new Float32Array(3 * (n + 1) * (m + 1));
@@ -17,22 +16,23 @@ var plane = ( function() {
 		this.indicesTris = new Uint16Array(3 * 2 * n * m);
 		var indicesTris = this.indicesTris;
 
-		var du = 20 / n;
-		var dv = 20 / m;
+		var du = 2 * Math.PI / n;
+		var dv = Math.PI / m;
+		var r = 1;
 		// Counter for entries in index array.
 		var iLines = 0;
 		var iTris = 0;
 
-		// Loop u.
-		for(var i = 0, u = -10; i <= n; i++, u += du) {
-			// Loop v.
-			for(var j = 0, v = -10; j <= m; j++, v += dv) {
+		// Loop angle u.
+		for(var i = 0, u = 0; i <= n; i++, u += du) {
+			// Loop angle v.
+			for(var j = 0, v = 0; j <= m; j++, v += dv) {
 
 				var iVertex = i * (m + 1) + j;
 
-				var x = u;
-				var y = 0;
-				var z = v;
+				var x = r * Math.sin(v) * Math.cos(u);
+				var y = r * Math.sin(v) * Math.sin(u);
+				var z = r * Math.cos(v);
 
 				// Set vertex positions.
 				vertices[iVertex * 3] = x;
@@ -40,9 +40,10 @@ var plane = ( function() {
 				vertices[iVertex * 3 + 2] = z;
 
 				// Calc and set normals.
-				normals[iVertex * 3] = 0;
-				normals[iVertex * 3 + 1] = 1;
-				normals[iVertex * 3 + 2] = 0;
+				var vertexLength = Math.sqrt(x * x + y * y + z * z);
+				normals[iVertex * 3] = x / vertexLength;
+				normals[iVertex * 3 + 1] = y / vertexLength;
+				normals[iVertex * 3 + 2] = z / vertexLength;
 
 				// Set index.
 				// Line on beam.
@@ -76,4 +77,3 @@ var plane = ( function() {
 	}
 
 }());
-//END exercise plane
