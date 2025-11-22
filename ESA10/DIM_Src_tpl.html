@@ -25,7 +25,7 @@
 				gl_Position = uPMatrix * tPosition;
 	
 				vec3 tNormal = normalize(uNMatrix * aNormal);
-				tNormal = uNMatrix * aNormal;
+				tNormal = normalize(uNMatrix * aNormal);
 				
 				vNormal = tNormal;
 			}
@@ -60,8 +60,8 @@
 			}
 
 			void main() {
-				vec3 vNormal = normalize(vNormal);
-				gl_FragColor = vec4(camLight(vNormal), 1.0);
+				vec3 n = normalize(vNormal);
+                gl_FragColor = vec4(camLight(n), 1.0);
 			}
 
     </script>

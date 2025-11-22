@@ -96,7 +96,9 @@ var app = (function () {
 
         // Generate or load data.
         //Data.generateData();
-        Data.readFileFromServer('data/iris/iris.data');
+        //Data.readFileFromServer('data/iris/iris.data');
+        //Data.readFileFromServer('data/iris/data.csv');
+        Data.readFileFromServer('data/seeds/seeds_dataset.csv');
     }
 
     function init() {
@@ -864,6 +866,7 @@ var app = (function () {
         if(tSNE.iter === 1) { mat4.identity(camera.vMatrix); }
 
         displayStepCounter_tSNE();
+        render();
     }
 
     // NEW DIM
