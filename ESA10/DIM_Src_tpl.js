@@ -1,6 +1,7 @@
 var app = (function () {
 
     var rawData = null, rawLabels = null, rawStats = null;
+    var embeddingShown = false;
 
     var gl;
 
@@ -100,7 +101,7 @@ var app = (function () {
         //Data.generateData();
         //Data.readFileFromServer('data/iris/iris.data');
 
-        //Data.readFileFromServer('data/seeds/seeds_best.csv');
+        Data.readFileFromServer('data/seeds/seeds_best.csv');
         Data.readFileFromServer('data/seeds/seeds_dataset.csv');
 
     }
@@ -287,6 +288,7 @@ var app = (function () {
         // var mBlue = createPhongMaterial({kd: [0., 0., 1.]});
         // createModel("sphere", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [.5, .5, .5], mBlue);
         // interactiveModel = models[0];
+
     }
 
     // Crate models from data
@@ -305,25 +307,31 @@ var app = (function () {
 
         var materials = [mRed, mGreen, mBlue, mYellow, mCyan, mMagenta];
 
+        // Map beliebiger Labelwerte (Strings/Integers) robust auf 0..K-1
+        var unique = Array.from(new Set(labels.map(function(l){ return String(l).trim(); })));
+        // optional: numerisch sortieren, wenn es Zahlen sind
+        unique.sort(function(a,b){
+            var na=+a, nb=+b;
+            if(!isNaN(na) && !isNaN(nb)) return na-nb;
+            return a.localeCompare(b);
+        });
+        var labelIndex = {};
+        unique.forEach(function(lab, idx){ labelIndex[lab] = idx; });
+
         // Clear models for new data
         models = [];
         for (var i = 0; i < data.length; i++) {
             var d = data[i];
-            // Set color according to classification.
-            // NEW DIM
-            var pos = Array(3).fill(0);
-            //var pos = [d[0], d[1], d[2]];
-            // Set dimension of the projection.
+            var pos = [0,0,0];
             var l = Math.min(d.length, 3);
-            for (var j = 0; j < l; j++) {
-                pos[j] = d[j];
-            }
-            // Scale model (like point size) according to data range and data set size.
+            for (var j = 0; j < l; j++) pos[j] = d[j];
+
             var scale = stats.maxRange / 100;
-            //var scale = stats.maxRange / 100 * camera.lrtb;
-            //var scale = Math.max(stats.maxRange / 100, camera.lrtb * 0.01);
             var scale3f = [scale, scale, scale];
-            createModel("sphere", fs, [1, 1, 1, 1], pos, [0, 0, 0], scale3f, materials[labels[i]]);
+
+            var labKey = String(labels[i]).trim();
+            var mi = labelIndex.hasOwnProperty(labKey) ? labelIndex[labKey] : 0;
+            createModel("sphere", fs, [1, 1, 1, 1], pos, [0, 0, 0], scale3f, materials[mi]);
         }
     }
 
@@ -600,25 +608,28 @@ var app = (function () {
                 case('r'):
                 case('R'):
                     if (rawData) {
-                        // erst Rohdaten visualisieren
                         initModelsFromData(rawData, rawLabels, rawStats);
                         initCameraFromData(rawStats);
                         render();
-                        // dann t-SNE neu initialisieren (neue Zufallsinitialisierung)
-                        init_tSNE(rawData);
+                        init_tSNE(rawData);                 // neue Zufallsinitialisierung
                         displayParameter_tSNE();
-                        displayStepCounter_tSNE();
+                        displayStepCounter_tSNE();          // zeigt step:0 sofort
                     } else {
                         console.log('Rohdaten noch nicht geladen.');
                     }
                     return;
 
                 case('t'):
-                    if (tSNE) step_tSNE(1);
-                    return;
-
                 case('T'):
-                    if (tSNE) step_tSNE(10);
+                    if (!tSNE && rawData) {
+                        init_tSNE(rawData);
+                        displayParameter_tSNE();
+                        displayStepCounter_tSNE();
+                    }
+                    if (tSNE) {
+                        var steps = evt.shiftKey ? 10 : 1;
+                        step_tSNE(steps);
+                    }
                     return;
             }
 
@@ -907,19 +918,33 @@ var app = (function () {
         elem.innerHTML = " step:" + tSNE.iter;
     }
 
-    // NEW DIM / change
+    function normalizeLabels(labels) {
+        var cleaned = labels.map(function(l){ return parseInt(String(l).trim(), 10); });
+        // Falls 1-basierte Labels (1..3), auf 0..2 mappen
+        var minL = Math.min.apply(null, cleaned);
+        if (minL >= 1) cleaned = cleaned.map(function(l){ return l - 1; });
+        return cleaned;
+    }
+
     function dataLoadedCallback(data, labels, stats) {
+        labels = normalizeLabels(labels);
 
         if (data[0].length > 3) {
-            // Rohdaten (7 Features): nur speichern, noch nicht t-SNE starten
             rawData = data; rawLabels = labels; rawStats = stats;
+            init_tSNE(rawData);
+            displayParameter_tSNE();
+            displayStepCounter_tSNE();
+            if (!embeddingShown) {
+                initModelsFromData(rawData, rawLabels, rawStats);
+                initCameraFromData(rawStats);
+                render();
+            }
             return;
         } else {
-            // 3D-Embedding: direkt anzeigen
+            embeddingShown = true;
             initModelsFromData(data, labels, stats);
             initCameraFromData(stats);
             render();
-
         }
     }
 

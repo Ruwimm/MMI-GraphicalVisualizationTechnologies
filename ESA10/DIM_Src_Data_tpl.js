@@ -148,17 +148,15 @@ var Data = (function () {
         for (var i = 0; i < labels.length; i++) {
             var li = labels[i];
             switch (li) {
-                case "Kama": labels[i] = 0; break;
-                case "Rosa": labels[i] = 1; break;
+                case "Kama":     labels[i] = 0; break;
+                case "Rosa":     labels[i] = 1; break;
                 case "Canadian": labels[i] = 2; break;
                 default:
                     if (typeof li === 'number') {
-                        // häufig sind Seeds-Labels 1,2,3 => auf 0,1,2 mappen
-                        labels[i] = li - 1;
+                        labels[i] = (li >= 1 && li <= 3) ? (li - 1) : li; // 0..2 unverändert
                     } else if (typeof li === 'string') {
-                        // falls als "1"/"2"/"3" als String ankommen
                         var num = parseInt(li, 10);
-                        if (!isNaN(num)) labels[i] = num - 1;
+                        if (!isNaN(num)) labels[i] = (num >= 1 && num <= 3) ? (num - 1) : num;
                     }
             }
         }
