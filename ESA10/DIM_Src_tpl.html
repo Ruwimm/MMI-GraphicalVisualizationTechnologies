@@ -1,6 +1,10 @@
 <!DOCTYPE html5>
 <html>
 <head>
+    <meta charset="utf-8">
+    <title>ESA 9 - Torustextur</title>
+    <link rel="stylesheet" href="style.css">
+
     <script src="ext/gl-matrix.js"></script>
     <script src="ext/papaparse.min.js"></script>
     <script src="ext/tsne.js"></script>
@@ -67,10 +71,32 @@
     </script>
 </head>
 <body onload="app.start()">
+
+<h1 id="title">ESA 9 - Torustextur</h1>
 <canvas id="canvas" width="500" height="500"></canvas>
-<br/>
-<span id="experiment"></span>
-<span id="para"></span>
-<span id="step"></span>
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            Noch anpassen!
+
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Perplexity: 35<br>
+            epsilon: 12<br>
+            Iterationen: 350 <br>
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Kursmaterialien
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+</div>
 </body>
 </html>

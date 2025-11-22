@@ -146,16 +146,20 @@ var Data = (function () {
      */
     function preprocessLabels() {
         for (var i = 0; i < labels.length; i++) {
-            switch (labels[i]) {
-                case "Iris-setosa" :
-                    labels[i] = 0;
-                    break;
-                case "Iris-versicolor" :
-                    labels[i] = 1;
-                    break;
-                case "Iris-virginica" :
-                    labels[i] = 2;
-                    break;
+            var li = labels[i];
+            switch (li) {
+                case "Kama": labels[i] = 0; break;
+                case "Rosa": labels[i] = 1; break;
+                case "Canadian": labels[i] = 2; break;
+                default:
+                    if (typeof li === 'number') {
+                        // häufig sind Seeds-Labels 1,2,3 => auf 0,1,2 mappen
+                        labels[i] = li - 1;
+                    } else if (typeof li === 'string') {
+                        // falls als "1"/"2"/"3" als String ankommen
+                        var num = parseInt(li, 10);
+                        if (!isNaN(num)) labels[i] = num - 1;
+                    }
             }
         }
     }

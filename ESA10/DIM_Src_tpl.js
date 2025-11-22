@@ -1,5 +1,7 @@
 var app = (function () {
 
+    var rawData = null, rawLabels = null, rawStats = null;
+
     var gl;
 
     // The shader program object is also used to
@@ -97,8 +99,10 @@ var app = (function () {
         // Generate or load data.
         //Data.generateData();
         //Data.readFileFromServer('data/iris/iris.data');
-        //Data.readFileFromServer('data/iris/data.csv');
+
+        //Data.readFileFromServer('data/seeds/seeds_best.csv');
         Data.readFileFromServer('data/seeds/seeds_dataset.csv');
+
     }
 
     function init() {
@@ -591,18 +595,37 @@ var app = (function () {
                     // No need to render.
                     return;
             }
-            // NEW DIM
-            // tSNE.
+
             switch (c) {
+                case('r'):
+                case('R'):
+                    if (rawData) {
+                        // erst Rohdaten visualisieren
+                        initModelsFromData(rawData, rawLabels, rawStats);
+                        initCameraFromData(rawStats);
+                        render();
+                        // dann t-SNE neu initialisieren (neue Zufallsinitialisierung)
+                        init_tSNE(rawData);
+                        displayParameter_tSNE();
+                        displayStepCounter_tSNE();
+                    } else {
+                        console.log('Rohdaten noch nicht geladen.');
+                    }
+                    return;
+
+                case('t'):
+                    if (tSNE) step_tSNE(1);
+                    return;
+
                 case('T'):
-                    step_tSNE(1);
-                    break;
+                    if (tSNE) step_tSNE(10);
+                    return;
             }
 
 
             // Render the scene again on any key pressed.
             render();
-        };
+        }
     }
 
     /**
@@ -836,8 +859,8 @@ var app = (function () {
     // NEW DIM
     function init_tSNE(data) {
         var opt = {};
-        opt.epsilon = 10; // epsilon is learning rate (10 = default)
-        opt.perplexity = 30; // roughly how many neighbors each point influences (30 = default)
+        opt.epsilon = 12; // epsilon is learning rate (10 = default)
+        opt.perplexity = 35; // roughly how many neighbors each point influences (30 = default)
         opt.dim = 3; // dimensionality of the embedding (2 = default)
 
         tSNE = new tsnejs.tSNE(opt); // create a tSNE instance
@@ -887,11 +910,17 @@ var app = (function () {
     // NEW DIM / change
     function dataLoadedCallback(data, labels, stats) {
 
-        initModelsFromData(data, labels, stats);
-        initCameraFromData(stats);
-        render();
+        if (data[0].length > 3) {
+            // Rohdaten (7 Features): nur speichern, noch nicht t-SNE starten
+            rawData = data; rawLabels = labels; rawStats = stats;
+            return;
+        } else {
+            // 3D-Embedding: direkt anzeigen
+            initModelsFromData(data, labels, stats);
+            initCameraFromData(stats);
+            render();
 
-        init_tSNE(data);
+        }
     }
 
     // App interface.
