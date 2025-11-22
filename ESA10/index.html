@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 9 - Torustextur</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
+    <script src="GVT_Src_vertexData_torus.js"></script>
+    <script src="TXR_Src_tpl.js"></script>
+    <script type="x-shader/x-vertex" id="vertexshader">
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+        attribute vec2 aTextureCoord;
+
+        uniform mat4 uPMatrix;
+        uniform mat4 uMVMatrix;
+        uniform mat3 uNMatrix;
+        uniform vec4 uColor;
+
+        varying vec3 vNormal;
+        varying vec4 vPosition;
+        varying vec4 vBaseColor;
+        varying vec2 vTextureCoord;
+
+
+
+        void main(){
+            vec4 tPosition = uMVMatrix * vec4(aPosition, 1.0);
+            gl_Position = uPMatrix * tPosition;
+
+            vNormal = normalize(uNMatrix * aNormal);
+            vPosition = tPosition;
+            vBaseColor = uColor;
+            vTextureCoord = aTextureCoord;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        precision mediump float;
+
+        varying vec3 vNormal;
+        varying vec4 vPosition;
+        varying vec4 vBaseColor;
+        varying vec2 vTextureCoord;
+
+        uniform sampler2D uTexture;
+
+        // Schalter: 0 = Textur, 1 = Voronoi
+        uniform int   uMode;
+
+        // Voronoi-Parameter
+        uniform float uVoronoiScaleX;
+        uniform float uVoronoiScaleY;
+        uniform float uVoronoiEdge;
+        uniform float uTileCountX; // Kachelung in U
+        uniform float uTileCountY; //  Kachelung in V
+        uniform vec3 uCellColor;  // Farbe  Fläche
+        uniform vec3 uLineColor;  // Farbe Linie
+
+        // Material
+        struct PhongMaterial {
+            vec3 ka;
+            vec3 kd;
+            vec3 ks;
+            float ke;
+        };
+        uniform PhongMaterial material;
+
+        // Ambient light
+        uniform vec3 ambientLight;
+
+        // Pointlights
+        const int MAX_LIGHT_SOURCES = 8;
+        struct LightSource {
+            bool isOn;
+            vec3 position;
+            vec3 color;
+        };
+        uniform LightSource light[MAX_LIGHT_SOURCES];
+
+        // random points
+        vec2 hash2(vec2 p) {
+            p = vec2(
+                dot(p, vec2(127.1, 311.7)),
+                dot(p, vec2(269.5, 183.3))
+            );
+            return fract(sin(p) * 43758.5453);
+        }
+
+
+        float voronoiEdgeMask(vec2 uv) {
+        vec2 P = uv * vec2(uVoronoiScaleX, uVoronoiScaleY);
+        vec2 i = floor(P);
+        vec2 f = fract(P);
+
+        float F1 = 1e9;
+        float F2 = 1e9;
+
+        vec2 tiles = vec2(uTileCountX, uTileCountY);
+
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                vec2 g = vec2(float(x), float(y));
+                vec2 cell = mod(i + g, tiles);
+                vec2 o = hash2(cell);
+                float d = distance(f, g + o);
+                if (d < F1) { F2 = F1; F1 = d; }
+                else if (d < F2) { F2 = d; }
+            }
+        }
+        // 1 edge, 0 face
+        float edge = 1.0 - smoothstep(0.0, uVoronoiEdge, F2 - F1);
+        return edge;
+        }
+
+        void main() {
+            vec3 V = normalize(-vPosition.xyz);
+            vec3 N = normalize(vNormal);
+
+            vec3 AD   = material.ka * ambientLight; // Ambient
+            vec3 diff = vec3(0.0);
+            vec3 spec = vec3(0.0);
+
+            for (int j = 0; j < MAX_LIGHT_SOURCES; ++j) {
+                if (light[j].isOn) {
+                    vec3 Lc = light[j].color;
+                    vec3 S  = normalize(light[j].position - vPosition.xyz);
+                    float sn = max(dot(S, N), 0.0);
+                    diff += material.kd * Lc * sn;
+
+                    vec3 R  = reflect(-S, N);
+                    float rv = max(dot(R, V), 0.0);
+                    spec += material.ks * Lc * pow(rv, material.ke);
+                }
+            }
+
+            float alpha = 1.0;
+            vec3 baseColor;
+
+            if (uMode == 1) {
+                float edge = voronoiEdgeMask(vTextureCoord);
+                baseColor = mix(uCellColor, uLineColor, edge);
+            } else {
+                vec4 tex = texture2D(uTexture, vTextureCoord);
+                baseColor = tex.rgb;
+                alpha = tex.a;
+            }
+
+            vec3 rgb = baseColor * (AD + diff) + spec;
+            gl_FragColor = vec4(rgb, alpha);
+        }
+    </script>
+
+</head>
+<body onload="app.start()">
+
+<h1 id="title">ESA 9 - Torustextur</h1>
+<canvas id="canvas" width="500" height="500"></canvas>
+
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            WASD: Links/Rechts und Oben/Unten <br>
+
+            Pfeiltasten: Drehen (4 Richtungen)
+
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Torus 1: Stylized Holz Textur<br>
+            Torus 2: Prozedurale Voronoi Textur im Lava-Look<br>
+            Plane: Marble Textur
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Boden Textur: https://www.poliigon.com/de/textures/marble <br>
+            Torus 1 Textur: https://polyhaven.com/a/wood_table und anschließend mit Image-AI stilisiert.<br>
+            Torus 2: Prozedural generiert.<br>
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+
+</div>
+</body>
+</html>
