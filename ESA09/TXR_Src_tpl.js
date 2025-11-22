@@ -1,21 +1,3 @@
-var illumination = {
-    ambientLight: [0.5, 0.5, 0.5],
-    light: [
-        {isOn: true, position: [3.0, 0.0, 5.0], color: [1.0, 1.0, 1.0]}
-    ]
-};
-
-function createPhongMaterial(m){
-    m = m || {};
-    return {
-        ka: m.ka || [0.3, 0.3, 0.3],
-        kd: m.kd || [0.8, 0.8, 0.8],
-        ks: m.ks || [0.2, 0.2, 0.2],
-        ke: m.ke || 20.0
-    };
-}
-var defaultMat = createPhongMaterial();
-
 var app = (function() {
 
 	var gl;
@@ -54,9 +36,44 @@ var app = (function() {
 		zAngle : 0,
 		// Distance in XZ-Plane from center when orbiting.
 		distance : 4,
+        yaw : 0,
+        pitch : 0,
 	};
 
-    var sceneRotation = { yaw: 0, pitch: 0 };
+    function getForward() {
+        var cy = Math.cos(camera.yaw), sy = Math.sin(camera.yaw);
+        var cp = Math.cos(camera.pitch), sp = Math.sin(camera.pitch);
+        return [ sy*cp, sp, -cy*cp ];
+    }
+    function getRight(forward) {
+        var r = vec3.create();
+        vec3.cross(r, forward, [0,1,0]); // Welt-Up
+        vec3.normalize(r, r);
+        return r;
+    }
+    function getUp(forward, right) {
+        var u = vec3.create();
+        vec3.cross(u, right, forward);
+        vec3.normalize(u, u);
+        return u;
+    }
+    function updateCameraBasis() {
+        var f = getForward();
+        var r = getRight(f);
+        var u = getUp(f, r);
+        camera.up = u;
+        camera.center = [ camera.eye[0]+f[0], camera.eye[1]+f[1], camera.eye[2]+f[2] ];
+    }
+
+
+    var illumination = {
+        ambientLight : [ .5, .5, .5 ],
+        light : [ {
+            isOn : true,
+            position : [ 3., 3., 5. ],
+            color : [ 1., 1., 1. ]
+        }, ]
+    };
 
 
 	function start() {
@@ -141,49 +158,213 @@ var app = (function() {
 		return shader;
 	}
 
-	function initUniforms() {
-		// Projection Matrix.
-		prog.pMatrixUniform = gl.getUniformLocation(prog, "uPMatrix");
+    function initUniforms() {
+        // Projection Matrix.
+        prog.pMatrixUniform = gl.getUniformLocation(prog, "uPMatrix");
 
-		// Model-View-Matrix.
-		prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
+        // Model-View-Matrix.
+        prog.mvMatrixUniform = gl.getUniformLocation(prog, "uMVMatrix");
 
-		// Normal Matrix.
-		prog.nMatrixUniform = gl.getUniformLocation(prog, "uNMatrix");
+        // Normal Matrix.
+        prog.nMatrixUniform = gl.getUniformLocation(prog, "uNMatrix");
 
-		// Color.
-		prog.colorUniform = gl.getUniformLocation(prog, "uColor");
+        // Color.
+        prog.colorUniform = gl.getUniformLocation(prog, "uColor");
 
-
-        prog.ambientLightUniform = gl.getUniformLocation(prog, "ambientLight");
+        // Light.
+        prog.ambientLightUniform = gl.getUniformLocation(prog,
+            "ambientLight");
+        // Array for light sources uniforms.
         prog.lightUniform = [];
-        for (var j=0; j<illumination.light.length; j++) {
-            var nb = "light["+j+"]";
+        // Loop over light sources.
+        for (var j = 0; j < illumination.light.length; j++) {
+            var lightNb = "light[" + j + "]";
+            // Store one object for every light source.
             var l = {};
-            l.isOn     = gl.getUniformLocation(prog, nb+".isOn");
-            l.position = gl.getUniformLocation(prog, nb+".position");
-            l.color    = gl.getUniformLocation(prog, nb+".color");
+            l.isOn = gl.getUniformLocation(prog, lightNb + ".isOn");
+            l.position = gl.getUniformLocation(prog, lightNb + ".position");
+            l.color = gl.getUniformLocation(prog, lightNb + ".color");
             prog.lightUniform[j] = l;
         }
+
+        // Material.
         prog.materialKaUniform = gl.getUniformLocation(prog, "material.ka");
         prog.materialKdUniform = gl.getUniformLocation(prog, "material.kd");
         prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
         prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
 
+        // Voronoi-Uniforms
+        prog.modeUniform        = gl.getUniformLocation(prog, "uMode");
+        prog.voroScaleXUniform  = gl.getUniformLocation(prog, "uVoronoiScaleX");
+        prog.voroScaleYUniform  = gl.getUniformLocation(prog, "uVoronoiScaleY");
+        prog.voroEdgeUniform    = gl.getUniformLocation(prog, "uVoronoiEdge");
+        prog.tileCountXUniform  = gl.getUniformLocation(prog, "uTileCountX");
+        prog.tileCountYUniform  = gl.getUniformLocation(prog, "uTileCountY");
+        prog.cellColorUniform = gl.getUniformLocation(prog, "uCellColor");
+        prog.lineColorUniform = gl.getUniformLocation(prog, "uLineColor");
+
+        // Texture.
+        prog.textureUniform = gl.getUniformLocation(prog, "uTexture");
+    }
+
+    /**
+     * Load the texture image file.
+     */
+    function initTexture(model, filename) {
+        var texture = gl.createTexture();
+        model.texture = texture;
+        texture.loaded = false;
+        texture.image = new Image();
+        texture.image.onload = function() {
+            onloadTextureImage(texture);
+        };
+        texture.image.src = filename;
+    }
+
+    function initProceduralTexture(model, spec) {
+        spec = spec || {};
+        var w = spec.width  || 256;  // POT
+        var h = spec.height || 256;  // POT
+        var tilesX = spec.tilesX || 8;
+        var tilesY = spec.tilesY || 16;
+        var colors = spec.colors || [
+            [180, 120, 80, 255],   // braun
+            [230, 200, 160, 255]   // hellbraun
+        ];
+
+        // Daten erzeugen
+        var data = generateChecker(w, h, tilesX, tilesY, colors);
+
+        // Texture anlegen und laden
+        var texture = gl.createTexture();
+        model.texture = texture;
+        texture.loaded = true;
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+
+        // Parameter: REPEAT + Mipmaps (POT)
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    function generateChecker(w, h, tilesX, tilesY, colors) {
+        var data = new Uint8Array(w * h * 4);
+        for (var y = 0; y < h; ++y) {
+            for (var x = 0; x < w; ++x) {
+                var cx = Math.floor(x / (w / tilesX));
+                var cy = Math.floor(y / (h / tilesY));
+                var c  = ((cx + cy) & 1) ? colors[0] : colors[1];
+                var idx = (y * w + x) * 4;
+                data[idx + 0] = c[0];
+                data[idx + 1] = c[1];
+                data[idx + 2] = c[2];
+                data[idx + 3] = c[3];
+            }
+        }
+        return data;
+    }
+
+    function onloadTextureImage(texture) {
+
+        texture.loaded = true;
+
+        // Use texture object.
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Assigen image data.
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+            texture.image);
+
+        const w = texture.image.width, h = texture.image.height;
+        const isPOT = (w & (w - 1)) === 0 && (h & (h - 1)) === 0;
+
+        if (isPOT) {
+            // POT: Mipmaps erlaubt
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // Wrap kann REPEAT sein
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        } else {
+            // NPOT: keine Mipmaps, Clamp-To-Edge und LINEAR/NEAREST
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+
+        // Release texture object.
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // Update the scene.
+        render();
+    }
+
+    function createPhongMaterial(material) {
+        material = material || {};
+        // Set some default values,
+        // if not defined in material paramter.
+        material.ka = material.ka || [ 0.3, 0.3, 0.3 ];
+        material.kd = material.kd || [ 0.6, 0.6, 0.6 ];
+        material.ks = material.ks || [ 0.8, 0.8, 0.8 ];
+        material.ke = material.ke || 10.;
+
+        return material;
     }
 
 	function initModels() {
 		// fillstyle
 		var fs = "fill";
-		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0], [0, 0, 0], [1, 1, 1]);
 
-        createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2], [Math.PI/2, 0, 0], [1, 1, 1]);
+        // Create some materials.
+        var mDefault = createPhongMaterial();
+        var mRed = createPhongMaterial({
+            kd : [ 1., 0., 0. ]
+        });
+        var mGreen = createPhongMaterial({
+            kd : [ 0., 1., 0. ]
+        });
+        var mBlue = createPhongMaterial({
+            kd : [ 0., 0., 1. ]
+        });
+        var mGrey = createPhongMaterial({
+            ka : [ 1., 1., 1. ],
+            kd : [ .5, .5, .5 ],
+            ks : [ 0., 0., 0. ]
+        });
+        var mWhite = createPhongMaterial({
+            ka : [ 0.8, 0.8, 0.8 ],
+            kd : [ 1, 1, 1 ],
+            ks : [ 0, 0, 0 ]
+        });
+
+		createModel("plane", fs, [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1],
+            mWhite,"textures/Floor.jpg");
 
 
-        createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2], [Math.PI/2, 0, 0], [3, 3, 3]);
+        createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2,0], [Math.PI/2, 0, 0,0], [1, 1, 1,1],mWhite,"textures/Wood-Stylized.png");
 
 
-		// Select one model that can be manipulated interactively by user.
+        var t2 = createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.4, -2, 0], [Math.PI/2, 0, 0, 0], [3, 3, 3, 3],mWhite);
+        initProceduralTexture(t2,{ width: 256, height: 256, tilesX: 12, tilesY: 24 });
+        t2.useVoronoi     = true;
+        t2.voronoiScaleX  = 12.0;
+        t2.voronoiScaleY  = 24.0;
+        t2.voronoiEdge    = 0.03;
+        t2.tileCountX     = 12.0;
+        t2.tileCountY     = 24.0;
+        t2.cellColor = [1.0, 0.2, 0.0];
+        t2.lineColor = [1.0, 0.85, 0.0];
+
+
 		interactiveModel = models[0];
 	}
 
@@ -192,16 +373,22 @@ var app = (function() {
 	 * @parameter geometryname: string with name of geometry.
 	 * @parameter fillstyle: wireframe, fill, fillwireframe.
 	 */
-	function createModel(geometryname, fillstyle, color, translate, rotate, scale) {
+    function createModel(geometryname, fillstyle, color, translate, rotate,
+                         scale, material, textureFilename) {
         var model = {};
         model.fillstyle = fillstyle;
         model.color = color;
-        model.name = geometryname;
         initDataAndBuffers(model, geometryname);
         initTransformations(model, translate, rotate, scale);
-        model.material = defaultMat;
+
+        if (textureFilename) {
+            initTexture(model, textureFilename);
+        }
+        model.material = material;
+
         models.push(model);
-	}
+        return model;
+    }
 
 	/**
 	 * Set scale, rotation and transformation for model.
@@ -227,98 +414,109 @@ var app = (function() {
 	 * @parameter model: a model object to augment with data.
 	 * @parameter geometryname: string with name of geometry.
 	 */
-	function initDataAndBuffers(model, geometryname) {
-		// Provide model object with vertex data arrays.
-		// Fill data arrays for Vertex-Positions, Normals, Index data:
-		// vertices, normals, indicesLines, indicesTris;
-		// Pointer this refers to the window.
-		this[geometryname]['createVertexData'].apply(model);
+    function initDataAndBuffers(model, geometryname) {
+        // Provide model object with vertex data arrays.
+        // Fill data arrays for Vertex-Positions, Normals, Index data:
+        // vertices, normals, indicesLines, indicesTris;
+        // Pointer this refers to the window.
+        this[geometryname]['createVertexData'].apply(model);
 
-		// Setup position vertex buffer object.
-		model.vboPos = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
-		gl.bufferData(gl.ARRAY_BUFFER, model.vertices, gl.STATIC_DRAW);
-		// Bind vertex buffer to attribute variable.
-		prog.positionAttrib = gl.getAttribLocation(prog, 'aPosition');
-		gl.enableVertexAttribArray(prog.positionAttrib);
+        // Setup position vertex buffer object.
+        model.vboPos = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
+        gl.bufferData(gl.ARRAY_BUFFER, model.vertices, gl.STATIC_DRAW);
+        // Bind vertex buffer to attribute variable.
+        prog.positionAttrib = gl.getAttribLocation(prog, 'aPosition');
+        gl.enableVertexAttribArray(prog.positionAttrib);
 
-		// Setup normal vertex buffer object.
-		model.vboNormal = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
-		gl.bufferData(gl.ARRAY_BUFFER, model.normals, gl.STATIC_DRAW);
-		// Bind buffer to attribute variable.
-		prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
-		gl.enableVertexAttribArray(prog.normalAttrib);
+        // Setup normal vertex buffer object.
+        model.vboNormal = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
+        gl.bufferData(gl.ARRAY_BUFFER, model.normals, gl.STATIC_DRAW);
+        // Bind buffer to attribute variable.
+        prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
+        gl.enableVertexAttribArray(prog.normalAttrib);
 
-		// Setup lines index buffer object.
-		model.iboLines = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines, gl.STATIC_DRAW);
-		model.iboLines.numberOfElements = model.indicesLines.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        // Setup texture coordinate vertex buffer object.
+        model.vboTextureCoord = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.bufferData(gl.ARRAY_BUFFER, model.textureCoord, gl.STATIC_DRAW);
+        // Bind buffer to attribute variable.
+        prog.textureCoordAttrib = gl
+            .getAttribLocation(prog, 'aTextureCoord');
+        gl.enableVertexAttribArray(prog.textureCoordAttrib);
 
-		// Setup triangle index buffer object.
-		model.iboTris = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris, gl.STATIC_DRAW);
-		model.iboTris.numberOfElements = model.indicesTris.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-	}
+        // Setup lines index buffer object.
+        model.iboLines = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines,
+            gl.STATIC_DRAW);
+        model.iboLines.numberOfElements = model.indicesLines.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // Setup triangle index buffer object.
+        model.iboTris = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris,
+            gl.STATIC_DRAW);
+        model.iboTris.numberOfElements = model.indicesTris.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    }
 
     function initEventHandler() {
         var deltaRotate = Math.PI / 36; // 5°
         var deltaMove = 0.1;
+        var maxPitch = Math.PI/2 - 0.1;
 
         window.onkeydown = function(evt) {
-            var key = evt.which ? evt.which : evt.keyCode;
+            const key = evt.key; // moderner als keyCode/which
 
-            // Pfeiltasten: Szene drehen (Yaw/Pitch)
-            if (key === 37) { // Left
-                sceneRotation.yaw += deltaRotate;
+            // Pfeiltasten: Kamera drehen
+            if (key === 'ArrowRight') {
+                camera.yaw += deltaRotate;
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 39) { // Right
-                sceneRotation.yaw -= deltaRotate;
+            if (key === 'ArrowLeft') {
+                camera.yaw -= deltaRotate;
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 38) { // Up
-                sceneRotation.pitch += deltaRotate;
+            if (key === 'ArrowUp') {
+                camera.pitch = Math.min(maxPitch, camera.pitch + deltaRotate);
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 40) { // Down
-                sceneRotation.pitch -= deltaRotate;
+            if (key === 'ArrowDown') {
+                camera.pitch = Math.max(-maxPitch, camera.pitch - deltaRotate);
                 evt.preventDefault();
                 render();
                 return;
             }
 
-            // Buchstaben-Tasten (WASD): Kamera in XY bewegen
-            var c = String.fromCharCode(key);
-            switch (c) {
-                case 'W': // Y+
-                    camera.eye[1]    += deltaMove;
-                    camera.center[1] += deltaMove;
-                    break;
-                case 'S': // Y-
-                    camera.eye[1]    -= deltaMove;
-                    camera.center[1] -= deltaMove;
-                    break;
-                case 'A': // X-
-                    camera.eye[0]    -= deltaMove;
-                    camera.center[0] -= deltaMove;
-                    break;
-                case 'D': // X+
-                    camera.eye[0]    += deltaMove;
-                    camera.center[0] += deltaMove;
-                    break;
-                default:
-                    break;
+            // WASD: Panning relativ zur Kamera (rechts/links, oben/unten)
+            const f = getForward();
+            const r = getRight(f);
+            const u = getUp(f, r);
+
+            function move(vec, s) {
+                camera.eye[0] += vec[0] * s;
+                camera.eye[1] += vec[1] * s;
+                camera.eye[2] += vec[2] * s;
+                camera.center = [ camera.eye[0] + f[0],
+                    camera.eye[1] + f[1],
+                    camera.eye[2] + f[2] ];
+            }
+
+            switch (key) {
+                case 'a': case 'A': move(r, -deltaMove); break; // links
+                case 'd': case 'D': move(r, +deltaMove); break; // rechts
+                case 'w': case 'W': move(u, +deltaMove); break; // oben
+                case 's': case 'S': move(u, -deltaMove); break; // unten
+                default: break;
             }
 
             render();
@@ -330,39 +528,41 @@ var app = (function() {
 	 */
     function render() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
         setProjection();
 
-        // View-Matrix
+        // Kamera yaw/pitch und eye
+        updateCameraBasis();
         mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
-        // Szenenmatrix S (Yaw/Pitch)
-        var S = mat4.create();
-        mat4.identity(S);
-        mat4.rotateY(S, S, sceneRotation.yaw);
-        mat4.rotateX(S, S, sceneRotation.pitch);
-
         gl.uniform3fv(prog.ambientLightUniform, illumination.ambientLight);
-        for (var j=0; j<illumination.light.length; j++) {
+        for (var j = 0; j < illumination.light.length; j++) {
             gl.uniform1i(prog.lightUniform[j].isOn, illumination.light[j].isOn);
-            var lp = illumination.light[j].position.slice();
-            lp.push(1.0);
-            vec4.transformMat4(lp, lp, camera.vMatrix); // in Augenraum
-            lp.pop();
-            gl.uniform3fv(prog.lightUniform[j].position, lp);
+            var lightPos = [].concat(illumination.light[j].position);
+            lightPos.push(1.0);
+            vec4.transformMat4(lightPos, lightPos, camera.vMatrix);
+            lightPos.pop();
+            gl.uniform3fv(prog.lightUniform[j].position, lightPos);
             gl.uniform3fv(prog.lightUniform[j].color, illumination.light[j].color);
         }
 
-
         for (var i = 0; i < models.length; i++) {
+            // Voronoi-Uniforms setzen (Textur bleibt gebunden, wird aber bei uMode==1 ignoriert)
+            gl.uniform1i(prog.modeUniform, models[i].useVoronoi ? 1 : 0);
+            gl.uniform1f(prog.voroScaleXUniform, models[i].voronoiScaleX || 12.0);
+            gl.uniform1f(prog.voroScaleYUniform, models[i].voronoiScaleY || 24.0);
+            gl.uniform1f(prog.voroEdgeUniform,   models[i].voronoiEdge   || 0.03);
+            gl.uniform1f(prog.tileCountXUniform, models[i].tileCountX    || 12.0);
+            gl.uniform1f(prog.tileCountYUniform, models[i].tileCountY    || 24.0);
+            gl.uniform3fv(prog.cellColorUniform, models[i].cellColor || [1.0, 0.2, 0.0]);
+            gl.uniform3fv(prog.lineColorUniform, models[i].lineColor || [1.0, 0.85, 0.0]);
+
+            if (models[i].texture && !models[i].texture.loaded) continue;
+
             updateTransformations(models[i]);
 
-            // mv = view * S * model
-            var tmp = mat4.create();
-            mat4.multiply(tmp, S, models[i].mMatrix);
-            mat4.multiply(models[i].mvMatrix, camera.vMatrix, tmp);
+            // mv = view * model
+            mat4.multiply(models[i].mvMatrix, camera.vMatrix, models[i].mMatrix);
 
-            // Normalenmatrix
             mat3.normalFromMat4(models[i].nMatrix, models[i].mvMatrix);
 
             gl.uniform4fv(prog.colorUniform, models[i].color);
@@ -371,23 +571,25 @@ var app = (function() {
             gl.uniform3fv(prog.materialKsUniform, models[i].material.ks);
             gl.uniform1f (prog.materialKeUniform, models[i].material.ke);
 
-            // Uniforms und Draw
-            gl.uniform4fv(prog.colorUniform, models[i].color);
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, models[i].texture);
+            gl.uniform1i(prog.textureUniform, 0);
 
             draw(models[i]);
         }
     }
 
-	function calculateCameraOrbit() {
-		// Calculate x,z position/eye of camera orbiting the center.
-		var x = 0, z = 2;
-		camera.eye[x] = camera.center[x];
-		camera.eye[z] = camera.center[z];
-		camera.eye[x] += camera.distance * Math.sin(camera.zAngle);
-		camera.eye[z] += camera.distance * Math.cos(camera.zAngle);
-	}
+	// function calculateCameraOrbit() {
+	// 	// Calculate x,z position/eye of camera orbiting the center.
+	// 	var x = 0, z = 2;
+	// 	camera.eye[x] = camera.center[x];
+	// 	camera.eye[z] = camera.center[z];
+	// 	camera.eye[x] += camera.distance * Math.sin(camera.zAngle);
+	// 	camera.eye[z] += camera.distance * Math.cos(camera.zAngle);
+	// }
 
 	function setProjection() {
 		// Set projection Matrix.
@@ -437,10 +639,17 @@ var app = (function() {
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
 		gl.vertexAttribPointer(prog.normalAttrib, 3, gl.FLOAT, false, 0, 0);
 
-		// Setup rendering tris.
+        // Setup texture VBO.
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.vboTextureCoord);
+        gl.vertexAttribPointer(prog.textureCoordAttrib, 2, gl.FLOAT, false,
+            0, 0);
+
+
+        // Setup rendering tris.
 		var fill = (model.fillstyle.search(/fill/) != -1);
 		if(fill) {
 			gl.enableVertexAttribArray(prog.normalAttrib);
+            gl.enableVertexAttribArray(prog.textureCoordAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
 			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
@@ -450,11 +659,14 @@ var app = (function() {
 		if(wireframe) {
 			gl.uniform4fv(prog.colorUniform, [0.,0.,0.,1.]);
 			gl.disableVertexAttribArray(prog.normalAttrib);
+            gl.disableVertexAttribArray(prog.textureCoordAttrib);
+
 			gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
 			gl.drawElements(gl.LINES, model.iboLines.numberOfElements, gl.UNSIGNED_SHORT, 0);
 		}
-	}
+
+    }
 
 	// App interface.
 	return {

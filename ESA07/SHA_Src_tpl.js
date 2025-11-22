@@ -36,7 +36,34 @@ var app = ( function() {
 		zAngle : 0,
 		// Distance in XZ-Plane from center when orbiting.
 		distance : 4,
+        yaw : 0,
+        pitch : 0,
 	};
+
+    function getForward() {
+        var cy = Math.cos(camera.yaw), sy = Math.sin(camera.yaw);
+        var cp = Math.cos(camera.pitch), sp = Math.sin(camera.pitch);
+        return [ sy*cp, sp, -cy*cp ];
+    }
+    function getRight(forward) {
+        var r = vec3.create();
+        vec3.cross(r, forward, [0,1,0]); // Welt-Up
+        vec3.normalize(r, r);
+        return r;
+    }
+    function getUp(forward, right) {
+        var u = vec3.create();
+        vec3.cross(u, right, forward);
+        vec3.normalize(u, u);
+        return u;
+    }
+    function updateCameraBasis() {
+        var f = getForward();
+        var r = getRight(f);
+        var u = getUp(f, r);
+        camera.up = u;
+        camera.center = [ camera.eye[0]+f[0], camera.eye[1]+f[1], camera.eye[2]+f[2] ];
+    }
 
     var sceneRotation = { yaw: 0, pitch: 0 };
 
@@ -245,57 +272,57 @@ var app = ( function() {
     function initEventHandler() {
         var deltaRotate = Math.PI / 36; // 5°
         var deltaMove = 0.1;
+        var maxPitch = Math.PI/2 - 0.1;
 
         window.onkeydown = function(evt) {
-            var key = evt.which ? evt.which : evt.keyCode;
+            const key = evt.key; // moderner als keyCode/which
 
-            // Pfeiltasten: Szene drehen (Yaw/Pitch)
-            if (key === 37) { // Left
-                sceneRotation.yaw += deltaRotate;
+            // Pfeiltasten: Kamera drehen
+            if (key === 'ArrowRight') {
+                camera.yaw += deltaRotate;
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 39) { // Right
-                sceneRotation.yaw -= deltaRotate;
+            if (key === 'ArrowLeft') {
+                camera.yaw -= deltaRotate;
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 38) { // Up
-                sceneRotation.pitch += deltaRotate;
+            if (key === 'ArrowUp') {
+                camera.pitch = Math.min(maxPitch, camera.pitch + deltaRotate);
                 evt.preventDefault();
                 render();
                 return;
             }
-            if (key === 40) { // Down
-                sceneRotation.pitch -= deltaRotate;
+            if (key === 'ArrowDown') {
+                camera.pitch = Math.max(-maxPitch, camera.pitch - deltaRotate);
                 evt.preventDefault();
                 render();
                 return;
             }
 
-            // Buchstaben-Tasten (WASD): Kamera in XY bewegen
-            var c = String.fromCharCode(key);
-            switch (c) {
-                case 'W': // Y+
-                    camera.eye[1]    += deltaMove;
-                    camera.center[1] += deltaMove;
-                    break;
-                case 'S': // Y-
-                    camera.eye[1]    -= deltaMove;
-                    camera.center[1] -= deltaMove;
-                    break;
-                case 'A': // X-
-                    camera.eye[0]    -= deltaMove;
-                    camera.center[0] -= deltaMove;
-                    break;
-                case 'D': // X+
-                    camera.eye[0]    += deltaMove;
-                    camera.center[0] += deltaMove;
-                    break;
-                default:
-                    break;
+            // WASD: Panning relativ zur Kamera (rechts/links, oben/unten)
+            const f = getForward();
+            const r = getRight(f);
+            const u = getUp(f, r);
+
+            function move(vec, s) {
+                camera.eye[0] += vec[0] * s;
+                camera.eye[1] += vec[1] * s;
+                camera.eye[2] += vec[2] * s;
+                camera.center = [ camera.eye[0] + f[0],
+                    camera.eye[1] + f[1],
+                    camera.eye[2] + f[2] ];
+            }
+
+            switch (key) {
+                case 'a': case 'A': move(r, -deltaMove); break; // links
+                case 'd': case 'D': move(r, +deltaMove); break; // rechts
+                case 'w': case 'W': move(u, +deltaMove); break; // oben
+                case 's': case 'S': move(u, -deltaMove); break; // unten
+                default: break;
             }
 
             render();
@@ -307,30 +334,18 @@ var app = ( function() {
 	 */
     function render() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
         setProjection();
 
-        // View-Matrix
+        // Kamera aus yaw/pitch ableiten
+        updateCameraBasis();
         mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
-
-        // Szenenmatrix S (Yaw/Pitch)
-        var S = mat4.create();
-        mat4.identity(S);
-        mat4.rotateY(S, S, sceneRotation.yaw);
-        mat4.rotateX(S, S, sceneRotation.pitch);
 
         for (var i = 0; i < models.length; i++) {
             updateTransformations(models[i]);
-
-            // mv = view * S * model
-            var tmp = mat4.create();
-            mat4.multiply(tmp, S, models[i].mMatrix);
-            mat4.multiply(models[i].mvMatrix, camera.vMatrix, tmp);
-
-            // Normalenmatrix
+            // mv = view * model
+            mat4.multiply(models[i].mvMatrix, camera.vMatrix, models[i].mMatrix);
             mat3.normalFromMat4(models[i].nMatrix, models[i].mvMatrix);
 
-            // Uniforms und Draw
             gl.uniform4fv(prog.colorUniform, models[i].color);
             gl.uniformMatrix4fv(prog.mvMatrixUniform, false, models[i].mvMatrix);
             gl.uniformMatrix3fv(prog.nMatrixUniform, false, models[i].nMatrix);
@@ -343,7 +358,8 @@ var app = ( function() {
         }
     }
 
-	function calculateCameraOrbit() {
+
+    function calculateCameraOrbit() {
 		// Calculate x,z position/eye of camera orbiting the center.
 		var x = 0, z = 2;
 		camera.eye[x] = camera.center[x];
