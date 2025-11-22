@@ -46,6 +46,18 @@
 
         uniform sampler2D uTexture;
 
+        // Schalter: 0 = Textur, 1 = Voronoi
+        uniform int   uMode;
+
+        // Voronoi-Parameter
+        uniform float uVoronoiScaleX;
+        uniform float uVoronoiScaleY;
+        uniform float uVoronoiEdge;
+        uniform float uTileCountX; // Kachelung in U
+        uniform float uTileCountY; //  Kachelung in V
+        uniform vec3 uCellColor;  // Farbe  Fläche
+        uniform vec3 uLineColor;  // Farbe Linie
+
         // Material
         struct PhongMaterial {
             vec3 ka;
@@ -58,7 +70,7 @@
         // Ambient light
         uniform vec3 ambientLight;
 
-        // Punktlichter
+        // Pointlights
         const int MAX_LIGHT_SOURCES = 8;
         struct LightSource {
             bool isOn;
@@ -67,25 +79,39 @@
         };
         uniform LightSource light[MAX_LIGHT_SOURCES];
 
-        vec3 phongSingle(vec3 p, vec3 n, vec3 v, LightSource l) {
-            vec3 L = l.color;
-            vec3 s = normalize(l.position - p);
-            vec3 r = reflect(-s, n);
-            float sn = max(dot(s,n), 0.0);
-            float rv = max(dot(r,v), 0.0);
-            vec3 diffuse  = material.kd * L * sn;
-            vec3 specular = material.ks * L * pow(rv, material.ke);
-            return diffuse + specular;
+        // random points
+        vec2 hash2(vec2 p) {
+            p = vec2(
+                dot(p, vec2(127.1, 311.7)),
+                dot(p, vec2(269.5, 183.3))
+            );
+            return fract(sin(p) * 43758.5453);
         }
 
-        vec3 phong(vec3 p, vec3 n, vec3 v) {
-            vec3 result = material.ka * ambientLight;
-            for (int j=0; j<MAX_LIGHT_SOURCES; j++) {
-                if (light[j].isOn) {
-                    result += phongSingle(p, n, v, light[j]);
-                }
+
+        float voronoiEdgeMask(vec2 uv) {
+        vec2 P = uv * vec2(uVoronoiScaleX, uVoronoiScaleY);
+        vec2 i = floor(P);
+        vec2 f = fract(P);
+
+        float F1 = 1e9;
+        float F2 = 1e9;
+
+        vec2 tiles = vec2(uTileCountX, uTileCountY);
+
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                vec2 g = vec2(float(x), float(y));
+                vec2 cell = mod(i + g, tiles);
+                vec2 o = hash2(cell);
+                float d = distance(f, g + o);
+                if (d < F1) { F2 = F1; F1 = d; }
+                else if (d < F2) { F2 = d; }
             }
-            return result;
+        }
+        // 1 edge, 0 face
+        float edge = 1.0 - smoothstep(0.0, uVoronoiEdge, F2 - F1);
+        return edge;
         }
 
         void main() {
@@ -109,9 +135,20 @@
                 }
             }
 
-            vec4 tex = texture2D(uTexture, vTextureCoord);
-            vec3 rgb = tex.rgb * (AD + diff) + spec;
-            gl_FragColor = vec4(rgb, tex.a);
+            float alpha = 1.0;
+            vec3 baseColor;
+
+            if (uMode == 1) {
+                float edge = voronoiEdgeMask(vTextureCoord);
+                baseColor = mix(uCellColor, uLineColor, edge);
+            } else {
+                vec4 tex = texture2D(uTexture, vTextureCoord);
+                baseColor = tex.rgb;
+                alpha = tex.a;
+            }
+
+            vec3 rgb = baseColor * (AD + diff) + spec;
+            gl_FragColor = vec4(rgb, alpha);
         }
     </script>
 
@@ -134,12 +171,14 @@
         </li>
         <li>
             <b>Darstellung:</b>
-            Zwei Torus (Bildtextur und Prozedural) auf einer Plane.
+            Torus 1: Stylized Holz Textur<br>
+            Torus 2: Prozedurale Voronoi Textur im Lava-Look<br>
+            Plane: Marble Textur
         </li>
         <li>
             <b>Quelle:</b>
             Boden Textur: https://www.poliigon.com/de/textures/marble <br>
-            Torus 1 Textur:<br>
+            Torus 1 Textur: https://polyhaven.com/a/wood_table und anschließend mit Image-AI stilisiert.<br>
             Torus 2: Prozedural generiert.<br>
         </li>
     </ul>

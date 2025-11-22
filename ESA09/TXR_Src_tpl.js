@@ -65,7 +65,7 @@ var app = (function() {
         camera.center = [ camera.eye[0]+f[0], camera.eye[1]+f[1], camera.eye[2]+f[2] ];
     }
 
-    // Objekt with light sources characteristics in the scene.
+
     var illumination = {
         ambientLight : [ .5, .5, .5 ],
         light : [ {
@@ -74,8 +74,6 @@ var app = (function() {
             color : [ 1., 1., 1. ]
         }, ]
     };
-
-    var sceneRotation = { yaw: 0, pitch: 0 };
 
 
 	function start() {
@@ -195,6 +193,16 @@ var app = (function() {
         prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
         prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
 
+        // Voronoi-Uniforms
+        prog.modeUniform        = gl.getUniformLocation(prog, "uMode");
+        prog.voroScaleXUniform  = gl.getUniformLocation(prog, "uVoronoiScaleX");
+        prog.voroScaleYUniform  = gl.getUniformLocation(prog, "uVoronoiScaleY");
+        prog.voroEdgeUniform    = gl.getUniformLocation(prog, "uVoronoiEdge");
+        prog.tileCountXUniform  = gl.getUniformLocation(prog, "uTileCountX");
+        prog.tileCountYUniform  = gl.getUniformLocation(prog, "uTileCountY");
+        prog.cellColorUniform = gl.getUniformLocation(prog, "uCellColor");
+        prog.lineColorUniform = gl.getUniformLocation(prog, "uLineColor");
+
         // Texture.
         prog.textureUniform = gl.getUniformLocation(prog, "uTexture");
     }
@@ -211,6 +219,56 @@ var app = (function() {
             onloadTextureImage(texture);
         };
         texture.image.src = filename;
+    }
+
+    function initProceduralTexture(model, spec) {
+        spec = spec || {};
+        var w = spec.width  || 256;  // POT
+        var h = spec.height || 256;  // POT
+        var tilesX = spec.tilesX || 8;
+        var tilesY = spec.tilesY || 16;
+        var colors = spec.colors || [
+            [180, 120, 80, 255],   // braun
+            [230, 200, 160, 255]   // hellbraun
+        ];
+
+        // Daten erzeugen
+        var data = generateChecker(w, h, tilesX, tilesY, colors);
+
+        // Texture anlegen und laden
+        var texture = gl.createTexture();
+        model.texture = texture;
+        texture.loaded = true;
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+
+        // Parameter: REPEAT + Mipmaps (POT)
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    function generateChecker(w, h, tilesX, tilesY, colors) {
+        var data = new Uint8Array(w * h * 4);
+        for (var y = 0; y < h; ++y) {
+            for (var x = 0; x < w; ++x) {
+                var cx = Math.floor(x / (w / tilesX));
+                var cy = Math.floor(y / (h / tilesY));
+                var c  = ((cx + cy) & 1) ? colors[0] : colors[1];
+                var idx = (y * w + x) * 4;
+                data[idx + 0] = c[0];
+                data[idx + 1] = c[1];
+                data[idx + 2] = c[2];
+                data[idx + 3] = c[3];
+            }
+        }
+        return data;
     }
 
     function onloadTextureImage(texture) {
@@ -295,10 +353,18 @@ var app = (function() {
         createModel("torus", fs, [1, 1, 1, 1], [0.2, 0.2, 2.2,0], [Math.PI/2, 0, 0,0], [1, 1, 1,1],mWhite,"textures/Wood-Stylized.png");
 
 
-        createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.3, -2, 0], [Math.PI/2, 0, 0, 0], [3, 3, 3, 3],mWhite,"textures/Floor.jpg");
+        var t2 = createModel("torus", fs, [1, 1, 1, 1], [-0.9, 0.4, -2, 0], [Math.PI/2, 0, 0, 0], [3, 3, 3, 3],mWhite);
+        initProceduralTexture(t2,{ width: 256, height: 256, tilesX: 12, tilesY: 24 });
+        t2.useVoronoi     = true;
+        t2.voronoiScaleX  = 12.0;
+        t2.voronoiScaleY  = 24.0;
+        t2.voronoiEdge    = 0.03;
+        t2.tileCountX     = 12.0;
+        t2.tileCountY     = 24.0;
+        t2.cellColor = [1.0, 0.2, 0.0];
+        t2.lineColor = [1.0, 0.85, 0.0];
 
 
-		// Select one model that can be manipulated interactively by user.
 		interactiveModel = models[0];
 	}
 
@@ -321,6 +387,7 @@ var app = (function() {
         model.material = material;
 
         models.push(model);
+        return model;
     }
 
 	/**
@@ -463,7 +530,7 @@ var app = (function() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         setProjection();
 
-        // Kamera-Basis aufbauen aus yaw/pitch und eye
+        // Kamera yaw/pitch und eye
         updateCameraBasis();
         mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
@@ -479,6 +546,16 @@ var app = (function() {
         }
 
         for (var i = 0; i < models.length; i++) {
+            // Voronoi-Uniforms setzen (Textur bleibt gebunden, wird aber bei uMode==1 ignoriert)
+            gl.uniform1i(prog.modeUniform, models[i].useVoronoi ? 1 : 0);
+            gl.uniform1f(prog.voroScaleXUniform, models[i].voronoiScaleX || 12.0);
+            gl.uniform1f(prog.voroScaleYUniform, models[i].voronoiScaleY || 24.0);
+            gl.uniform1f(prog.voroEdgeUniform,   models[i].voronoiEdge   || 0.03);
+            gl.uniform1f(prog.tileCountXUniform, models[i].tileCountX    || 12.0);
+            gl.uniform1f(prog.tileCountYUniform, models[i].tileCountY    || 24.0);
+            gl.uniform3fv(prog.cellColorUniform, models[i].cellColor || [1.0, 0.2, 0.0]);
+            gl.uniform3fv(prog.lineColorUniform, models[i].lineColor || [1.0, 0.85, 0.0]);
+
             if (models[i].texture && !models[i].texture.loaded) continue;
 
             updateTransformations(models[i]);

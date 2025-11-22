@@ -52,6 +52,7 @@ var torus = ( function() {
 				normals[iVertex * 3 + 1] = ny;
 				normals[iVertex * 3 + 2] = nz;
 
+
                 // Set texture coordinate.
                 textureCoord[iVertex * 2]     = j / m;  // s entlang v (Major-Kreis)
                 textureCoord[iVertex * 2 + 1] = i / n;  // t entlang u (Minor-Kreis)
