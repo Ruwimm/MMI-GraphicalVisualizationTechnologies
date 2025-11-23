@@ -1,7 +1,7 @@
-var torus = ( function() {
+var sphere = ( function() {
 
 	function createVertexData() {
-		var n = 16;
+		var n = 32;
 		var m = 32;
 
 		// Positions.
@@ -10,10 +10,10 @@ var torus = ( function() {
 		// Normals.
 		this.normals = new Float32Array(3 * (n + 1) * (m + 1));
 		var normals = this.normals;
-
-        this.textureCoord = new Float32Array(2 * (n + 1) * (m + 1));
-        var textureCoord = this.textureCoord;
-
+		//NEW
+		// Texture coordinates (2D).
+		this.textureCoord = new Float32Array(2 * (n + 1) * (m + 1));
+		var textureCoord = this.textureCoord;		
 		// Index data.
 		this.indicesLines = new Uint16Array(2 * 2 * n * m);
 		var indicesLines = this.indicesLines;
@@ -21,9 +21,8 @@ var torus = ( function() {
 		var indicesTris = this.indicesTris;
 
 		var du = 2 * Math.PI / n;
-		var dv = 2 * Math.PI / m;
-		var r = 0.2;
-		var R = 0.5;
+		var dv = Math.PI / m;
+		var r = 1;
 		// Counter for entries in index array.
 		var iLines = 0;
 		var iTris = 0;
@@ -35,9 +34,9 @@ var torus = ( function() {
 
 				var iVertex = i * (m + 1) + j;
 
-				var x = (R + r * Math.cos(u) ) * Math.cos(v);
-				var y = (R + r * Math.cos(u) ) * Math.sin(v);
-				var z = r * Math.sin(u);
+				var x = r * Math.sin(v) * Math.cos(u);
+				var y = r * Math.sin(v) * Math.sin(u);
+				var z = r * Math.cos(v);
 
 				// Set vertex positions.
 				vertices[iVertex * 3] = x;
@@ -45,20 +44,17 @@ var torus = ( function() {
 				vertices[iVertex * 3 + 2] = z;
 
 				// Calc and set normals.
-				var nx = Math.cos(u) * Math.cos(v);
-				var ny = Math.cos(u) * Math.sin(v);
-				var nz = Math.sin(u);
-				normals[iVertex * 3] = nx;
-				normals[iVertex * 3 + 1] = ny;
-				normals[iVertex * 3 + 2] = nz;
+				var vertexLength = Math.sqrt(x * x + y * y + z * z);
+				normals[iVertex * 3] = x / vertexLength;
+				normals[iVertex * 3 + 1] = y / vertexLength;
+				normals[iVertex * 3 + 2] = z / vertexLength;
 
+				//NEW
+				// Set texture coordinate.
+				textureCoord[iVertex * 2] = u / (2 * Math.PI);
+				textureCoord[iVertex * 2 + 1] = v / Math.PI;
 
-                // Set texture coordinate.
-                textureCoord[iVertex * 2]     = j / m;  // s entlang v (Major-Kreis)
-                textureCoord[iVertex * 2 + 1] = i / n;  // t entlang u (Minor-Kreis)
-
-
-                // Set index.
+				// Set index.
 				// Line on beam.
 				if(j > 0 && i > 0) {
 					indicesLines[iLines++] = iVertex - 1;
@@ -87,6 +83,6 @@ var torus = ( function() {
 
 	return {
 		createVertexData : createVertexData
-	}
+	};
 
 }());

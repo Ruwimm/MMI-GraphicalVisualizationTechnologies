@@ -1,0 +1,116 @@
+<!DOCTYPE html5>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ESA 9 - Torustextur</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="ext/gl-matrix.js"></script>
+    <script src="ext/papaparse.min.js"></script>
+    <script src="ext/tsne.js"></script>
+    <script src="GVT_Src_vertexData_sphere.js"></script>
+    <script src="DIM_Src_Data_tpl.js"></script>
+    <script src="DIM_Src_tpl.js"></script>
+
+    <script type="x-shader/x-vertex" id="vertexshader">
+			attribute vec3 aPosition;
+			attribute vec3 aNormal;
+
+			uniform mat4 uPMatrix;
+			uniform mat4 uMVMatrix;
+			uniform mat3 uNMatrix;
+
+			varying vec3 vNormal;
+
+			void main(){
+				// Calculte vertex position in eye coordinates. 
+				vec4 tPosition = uMVMatrix * vec4(aPosition, 1.0);
+				// Calculate projektion.
+				gl_Position = uPMatrix * tPosition;
+	
+				vec3 tNormal = normalize(uNMatrix * aNormal);
+				tNormal = normalize(uNMatrix * aNormal);
+				
+				vNormal = tNormal;
+			}
+
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+			precision mediump float;
+
+			varying vec3 vNormal;
+
+			// Material.
+			struct PhongMaterial {
+				vec3 ka;
+				vec3 kd;
+				vec3 ks;
+				float ke;
+			};
+			uniform PhongMaterial material;
+
+			// Ambient light.
+			uniform vec3 ambientLight;
+
+			vec3 camLight(vec3 n) {
+
+				vec3 ambient = material.ka * ambientLight;
+
+				vec3 s = vec3(0,0,1);
+				float sn = max( dot(s,n), 0.0);
+				vec3 diffuse = material.kd * sn;
+
+				return ambient + diffuse;
+			}
+
+			void main() {
+				vec3 n = normalize(vNormal);
+                gl_FragColor = vec4(camLight(n), 1.0);
+			}
+
+    </script>
+</head>
+<body onload="app.start()">
+
+<h1 id="title">ESA 9 - Torustextur</h1>
+<canvas id="canvas" width="500" height="500"></canvas>
+
+<div>
+    <span id="para"></span>
+    <span id="step" style="margin-left:1em;"></span>
+</div>
+
+<div id="hinweise">
+    <h2>Allgemeine Hinweise</h2>
+    <ul>
+        <li>
+            <b>Steuerung:</b>
+            X,Y,Z: Daten Rotieren <br>
+            B/Shift B: Zoom in/out <br>
+            t/T: Iteration Step 1/10 <br>
+            r: Neu iterieren
+
+        </li>
+        <li>
+            <b>Darstellung:</b>
+            Beste Lösung:<br>
+            Perplexity: 35<br>
+            epsilon: 12<br>
+            Iterationen: 350 <br>
+        </li>
+        <li>
+            <b>Quelle:</b>
+            Kursmaterialien
+        </li>
+        <li>
+            <b>Notiz:</b>
+            Beste Lösung: Blaue gruppe wird nicht korrekt dargestellt. Vermutlich ein normalisierungsfehler den ich nicht gefixt bekommen habe. Außerdem wird nicht zurückgeladen.
+            Beim Refresh der Seite kann die beste Lösung neu geladen werden
+        </li>
+    </ul>
+</div>
+<div id="Buttons">
+    <button id="overviewButton" onclick="window.location.href='../index.html'">Zur Gesamtuebersicht</button>
+</div>
+</body>
+</html>
